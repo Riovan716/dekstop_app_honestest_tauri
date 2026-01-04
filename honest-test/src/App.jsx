@@ -4,6 +4,7 @@ import MainPage from './pages/MainPage';
 import WaitingPage from './pages/WaitingPage';
 import ExamPage from './pages/ExamPage';
 import ReviewPage from './pages/ReviewPage';
+import CheckReadiness from './pages/CheckReadiness';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/waiting" element={<WaitingPage />} />
         <Route path="/exam" element={<ExamPage />} />
         <Route path="/review" element={<ReviewPage />} />
+        <Route path="/check-readiness" element={<CheckReadiness />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

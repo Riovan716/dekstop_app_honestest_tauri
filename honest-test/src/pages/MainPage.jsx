@@ -76,7 +76,7 @@ export default function MainPage() {
         const file = new File([fileText], selected.split(/[/\\]/).pop() || 'exam.ta12', {
           type: 'text/plain',
         });
-        
+
         setExamConfigFile(file);
         setShowPasswordDialog(true);
       }
@@ -112,17 +112,17 @@ export default function MainPage() {
           base64Data = base64Data.split(',')[1];
         }
       }
-      
+
       if (!base64Data || base64Data.length === 0) {
         setPasswordErrMessage('File is empty or invalid');
         return;
       }
-      
+
       if (!configPassword || configPassword.trim().length === 0) {
         setPasswordErrMessage('Please enter config password');
         return;
       }
-      
+
       const result = await invoke('decrypt_exam_file', {
         fileBase64: base64Data,
         password: configPassword.trim(),
@@ -244,7 +244,7 @@ export default function MainPage() {
       </div>
 
       <div className="footer-buttons">
-        <button className="footer-btn" onClick={() => alert('Check Readiness feature coming soon')}>
+        <button className="footer-btn" onClick={() => navigate('/check-readiness')}>
           <span className="footer-icon">📷</span>
           Check Readiness
         </button>
