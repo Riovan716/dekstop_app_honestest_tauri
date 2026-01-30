@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { load } from '@tauri-apps/plugin-store';
 import { checkNimInCourse } from '../api/exam.js';
 import logo from '../assets/logo.png';
+import exitIcon from '../assets/exit.png';
+import batteryIcon from '../assets/baterai.png';
 import './WaitingPage.css';
 
 export default function WaitingPage() {
@@ -34,7 +36,7 @@ export default function WaitingPage() {
       console.log('Time limit (seconds):', data.time_limit, 'Duration (minutes):', data.duration_minutes);
       console.log('Start date:', data.start_date);
       console.log('End date:', data.end_date);
-      
+
       // Ensure data structure is correct
       // time_limit is in seconds, duration_minutes is in minutes
       let durationInMinutes = null;
@@ -44,7 +46,7 @@ export default function WaitingPage() {
         // Convert seconds to minutes
         durationInMinutes = Math.floor(data.time_limit / 60);
       }
-      
+
       const formattedData = {
         ...data,
         course_id: data.course_id || null,
@@ -59,7 +61,7 @@ export default function WaitingPage() {
         start_password: data.start_password || null,
         allowed_students: data.allowed_students || [],
       };
-      
+
       console.log('Formatted data:', formattedData);
       setExamData(formattedData);
     } catch (error) {
@@ -80,7 +82,7 @@ export default function WaitingPage() {
         setPasswordError('Please enter start password');
         return;
       }
-      
+
       if (startPassword.trim() === examData.start_password) {
         // Password correct, check if NIM is in allowed_students
         await checkNimAndNavigate();
@@ -97,7 +99,7 @@ export default function WaitingPage() {
     try {
       // Check if current time is within start_date and end_date range
       const now = new Date();
-      
+
       if (examData.start_date) {
         const startDate = new Date(examData.start_date);
         if (now < startDate) {
@@ -117,7 +119,7 @@ export default function WaitingPage() {
       // Load user data
       const store = await load('store.json');
       const nim = await store.get('user-nim');
-      
+
       if (!nim) {
         setPasswordError('NIM not found. Please go back to welcome page.');
         return;
@@ -130,7 +132,7 @@ export default function WaitingPage() {
           const isAllowed = examData.allowed_students.some(
             (student) => student.nim === nim
           );
-          
+
           if (!isAllowed) {
             setPasswordError('You are not permitted to take this exam. You have not yet enrolled in this course.');
             return;
@@ -143,7 +145,7 @@ export default function WaitingPage() {
         // Check via API
         try {
           const response = await checkNimInCourse(nim, examData.course_id);
-          
+
           if (!response.exists) {
             setPasswordError('You are not permitted to take this exam. You have not yet enrolled in this course.');
             return;
@@ -155,7 +157,7 @@ export default function WaitingPage() {
             const isAllowed = examData.allowed_students.some(
               (student) => student.nim === nim
             );
-            
+
             if (!isAllowed) {
               setPasswordError('You are not permitted to take this exam. You have not yet enrolled in this course.');
               return;
@@ -199,7 +201,7 @@ export default function WaitingPage() {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     const secs = 0;
-    
+
     if (hours > 0) {
       return `${hours} hours, ${mins} minutes, ${secs} seconds`;
     }
@@ -219,43 +221,46 @@ export default function WaitingPage() {
   return (
     <div className="waiting-page">
       <div className="waiting-content">
-        <div className="course-section">
-          <h2 className="section-title">Course : {examData.course_title || examData.course?.title || 'N/A'}</h2>
-          <p className="course-description">
-            {examData.course_description || examData.course?.description || examData.description || 'No description available.'}
-          </p>
-        </div>
+        <h1 className="main-title">Course : {examData.course_title || examData.course?.title || 'N/A'}</h1>
 
-        <div className="quiz-section">
-          <h2 className="quiz-title">{examData.title || examData.name || 'N/A'}</h2>
-          
-          <div className="quiz-info-box">
-            <div className="info-row">
-              <span className="info-label">Attempts allowed :</span>
-              <span className="info-value">
+        <p className="description-text">
+          {examData.course_description || examData.course?.description || examData.description || 'No description available for this course. Please contact your instructor for more details or if you believe this is an error.'}
+        </p>
+
+        <h2 className="sub-title">{examData.title || examData.name || 'N/A'}</h2>
+
+        <div className="details-container">
+          <div className="details-table">
+            <div className="detail-row">
+              <span className="detail-label">Attempts allowed</span>
+              <span className="detail-separator">:</span>
+              <span className="detail-value">
                 {(examData.allowed_attempts !== undefined && examData.allowed_attempts !== null)
-                  ? examData.allowed_attempts 
+                  ? examData.allowed_attempts
                   : (examData.attempts_allowed !== undefined && examData.attempts_allowed !== null)
-                  ? examData.attempts_allowed
-                  : '-'}
+                    ? examData.attempts_allowed
+                    : '-'}
               </span>
             </div>
-            <div className="info-row">
-              <span className="info-label">This quiz started on :</span>
-              <span className="info-value">{formatDate(examData.start_date)}</span>
+            <div className="detail-row">
+              <span className="detail-label">This quiz started on</span>
+              <span className="detail-separator">:</span>
+              <span className="detail-value">{formatDate(examData.start_date)}</span>
             </div>
-            <div className="info-row">
-              <span className="info-label">This quiz closed on :</span>
-              <span className="info-value">{formatDate(examData.end_date)}</span>
+            <div className="detail-row">
+              <span className="detail-label">This quiz closed on</span>
+              <span className="detail-separator">:</span>
+              <span className="detail-value">{formatDate(examData.end_date)}</span>
             </div>
-            <div className="info-row">
-              <span className="info-label">Time Limit :</span>
-              <span className="info-value">
-                {formatTimeLimit(examData.duration_minutes)}
-              </span>
+            <div className="detail-row">
+              <span className="detail-label">Time Limit</span>
+              <span className="detail-separator">:</span>
+              <span className="detail-value">{formatTimeLimit(examData.duration_minutes)}</span>
             </div>
           </div>
+        </div>
 
+        <div className="action-container">
           <button className="btn-start-exam" onClick={handleStartExam}>
             Start Exam
           </button>
@@ -266,16 +271,21 @@ export default function WaitingPage() {
         <div className="footer-logo">
           <img src={logo} alt="Logo" className="footer-logo-img" />
         </div>
-        <div className="footer-info">
-          <span>100%</span>
-          <span>{new Date().toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: '2-digit', 
+        <div className="footer-right">
+          <div className="status-badge">
+            <img src={batteryIcon} alt="Battery" className="status-icon-img" />
+            <span>100%</span>
+          </div>
+          <span className="current-time">{new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
           })}</span>
-          <span className="fullscreen-icon">⛶</span>
+          <button className="btn-footer-exit" onClick={() => navigate('/main')}>
+            <img src={exitIcon} alt="Exit" className="exit-icon-img" />
+          </button>
         </div>
       </div>
 

@@ -107,3 +107,25 @@ export async function checkNimInCourse(nim, courseId) {
   return response;
 }
 
+/**
+ * Get number of attempts for a student in an exam
+ * @param {number} examId - Exam ID
+ * @param {string} nim - Student NIM
+ * @returns {Promise<number>} Number of attempts
+ */
+export async function getStudentExamAttempts(examId, nim) {
+  const queryParams = new URLSearchParams();
+  queryParams.append('exam', examId.toString());
+  queryParams.append('user_username', nim);
+
+  const response = await apiRequest(`/exam-result?${queryParams.toString()}`, {
+    method: 'GET',
+    useAuth: false,
+  });
+
+  if (response.data && Array.isArray(response.data)) {
+    return response.data.length;
+  }
+  return 0;
+}
+

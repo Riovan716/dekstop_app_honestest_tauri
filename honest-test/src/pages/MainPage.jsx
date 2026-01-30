@@ -4,9 +4,13 @@ import { invoke } from '@tauri-apps/api/core';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { load } from '@tauri-apps/plugin-store';
-import { downloadExamConfigFile } from '../api/exam.js';
+import { downloadExamConfigFile, getStudentExamAttempts } from '../api/exam.js';
 import { fileToBase64, blobToFile } from '../utils/fileUtils.js';
 import logo from '../assets/logo.png';
+import getIcon from '../assets/get.png';
+import readinessIcon from '../assets/readlines.png';
+import clearIcon from '../assets/clear.png';
+import exitIcon from '../assets/exit.png';
 import './MainPage.css';
 
 export default function MainPage() {
@@ -130,6 +134,22 @@ export default function MainPage() {
 
       if (result.data) {
         console.log('Decrypted exam data:', result.data);
+
+        // Check allowed attempts
+        if (result.data.allowed_attempts) {
+          try {
+            const attempts = await getStudentExamAttempts(result.data.id, nim);
+            if (attempts >= result.data.allowed_attempts) {
+              setPasswordErrMessage(`You have reached the maximum number of attempts (${result.data.allowed_attempts}) for this exam.`);
+              return;
+            }
+          } catch (error) {
+            console.error('Error checking attempts:', error);
+            setPasswordErrMessage('Failed to verify attempt limit. Please check your connection.');
+            return;
+          }
+        }
+
         const store = await load('store.json');
         await store.set('exam-data', result.data);
         await store.save();
@@ -158,14 +178,12 @@ export default function MainPage() {
   };
 
   const handleExitApp = async () => {
-    if (window.confirm('Are you sure you want to exit the application?')) {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const appWindow = getCurrentWindow();
-        await appWindow.close();
-      } catch (error) {
-        console.error('Error exiting app:', error);
-      }
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      await appWindow.close();
+    } catch (error) {
+      console.error('Error exiting app:', error);
     }
   };
 
@@ -213,47 +231,48 @@ export default function MainPage() {
 
           <div className="form-group">
             <label>Exam Config</label>
-            <div className="exam-config-container">
-              <input
-                type="text"
-                value={examConfigFile ? examConfigFile.name : ''}
-                readOnly
-                className="form-input exam-config-input"
-                placeholder="Choose File"
-              />
-              <button
-                onClick={handleFileSelect}
-                className="btn-open-config"
-              >
-                Open Exam Config
-              </button>
-            </div>
+            <input
+              type="text"
+              value={examConfigFile ? examConfigFile.name : ''}
+              readOnly
+              className="form-input exam-config-input"
+              placeholder="Choose File"
+            />
           </div>
 
-          <button
-            className="btn-get-credential"
-            onClick={() => {
-              // This can be implemented later for credential file generation
-              alert('Get Credential File feature coming soon');
-            }}
-          >
-            <span className="btn-icon">⚙️</span>
-            Get Credential File
-          </button>
+          <div className="action-buttons">
+            <button
+              onClick={handleFileSelect}
+              className="btn-main-action btn-open-config"
+            >
+              Open Exam Config
+            </button>
+
+            <button
+              className="btn-main-action btn-get-credential"
+              onClick={() => {
+                // This can be implemented later for credential file generation
+                alert('Get Credential File feature coming soon');
+              }}
+            >
+              <img src={getIcon} alt="Get Credential" className="btn-icon-img" />
+              Get Credential File
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="footer-buttons">
         <button className="footer-btn" onClick={() => navigate('/check-readiness')}>
-          <span className="footer-icon">📷</span>
+          <img src={readinessIcon} alt="Readiness" className="footer-icon-img" />
           Check Readiness
         </button>
         <button className="footer-btn" onClick={handleClearAppData}>
-          <span className="footer-icon">🔄</span>
+          <img src={clearIcon} alt="Clear Data" className="footer-icon-img" />
           Clear App Data
         </button>
         <button className="footer-btn" onClick={handleExitApp}>
-          <span className="footer-icon">→</span>
+          <img src={exitIcon} alt="Exit" className="footer-icon-img" />
           Exit App
         </button>
       </div>

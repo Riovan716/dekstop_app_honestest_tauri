@@ -67,101 +67,143 @@ export default function CheckReadiness() {
         }
     }, [webcamRef]);
 
-    const detectMovement = (faceBlendShapes) => {
+    const detectMovement = (faceBlendShapes, landmarks) => {
         const currentTime = new Date().getTime();
         const categories = faceBlendShapes.categories;
         const state = stateRef.current;
+        let detectedAction = null; // 'left', 'right', 'up', 'down', or null
 
-        // Original Right indices (16, 13) -> Now mapped to LEFT
-        if (categories[16].score > 0.92 && categories[13].score > 0.92) {
-            if (currentTime - state.lastDetection > 500) {
-                setMovementDescription('Melirik ke kiri');
-                state.lirikKiri += 1;
-                state.lirikKanan = 0;
-                state.lirikBawah = 0;
-                state.lirikAtas = 0;
+        if (landmarks) {
+            // --- 1. Head Turn (YAW) ---
+            const nose = landmarks[1];
+            const rightEye = landmarks[33];
+            const leftEye = landmarks[263];
+            const distNoseToRight = Math.abs(nose.x - rightEye.x);
+            const distNoseToLeft = Math.abs(nose.x - leftEye.x);
 
-                if (currentTime - state.lastLeftDetection > 5000) {
-                    state.lirikKiri = 0;
-                    state.lastLeftDetection = currentTime;
+            let headTurn = 'center';
+            if (distNoseToLeft < distNoseToRight * 0.5) {
+                headTurn = 'left';
+            } else if (distNoseToRight < distNoseToLeft * 0.5) {
+                headTurn = 'right';
+            }
+
+            // --- 2. Head Pitch (PITCH) - Only if Head is Center ---
+            let headPitch = 'center';
+            if (headTurn === 'center') {
+                const midEyeY = (rightEye.y + leftEye.y) / 2;
+                const upperLip = landmarks[13];
+                const lowerLip = landmarks[14];
+                const midMouthY = (upperLip.y + lowerLip.y) / 2;
+
+                const distEyeNose = Math.abs(nose.y - midEyeY);
+                const distNoseMouth = Math.abs(midMouthY - nose.y);
+
+                // Up: Eyes closer to nose (Legacy: 0.85 multiplier)
+                if (distEyeNose < distNoseMouth * 0.7) {
+                    headPitch = 'up';
+                }
+                // Down: Mouth closer to nose
+                else if (distNoseMouth < distEyeNose * 0.45) {
+                    headPitch = 'down';
+                }
+            }
+
+            // --- 3. Eye Gaze (EYES) ---
+            // Sensitive Thresholds
+            const isEyesRight = (categories[16].score > 0.75 || categories[13].score > 0.75);
+            const isEyesLeft = (categories[15].score > 0.75 || categories[14].score > 0.75);
+            const isEyesDown = (categories[11].score > 0.45 || categories[12].score > 0.45);
+            const isEyesUp = (categories[17].score > 0.35 || categories[18].score > 0.35);
+
+            // --- 4. Hierarchical Decision ---
+            if (headTurn === 'left') {
+                detectedAction = 'left';
+            } else if (headTurn === 'right') {
+                detectedAction = 'right';
+            } else {
+                // Head is Center (Horizontal) -> Check Vertical with Compensation Logic
+
+                if (headPitch === 'up') {
+                    // Head Up + Eyes Down (looking at screen) = Normal
+                    if (isEyesDown) {
+                        detectedAction = null;
+                    } else {
+                        detectedAction = 'up';
+                    }
+                } else if (headPitch === 'down') {
+                    // Head Down + Eyes Up (looking at screen) = Normal
+                    if (isEyesUp) {
+                        detectedAction = null;
+                    } else {
+                        detectedAction = 'down';
+                    }
+                } else {
+                    // Head Pitch Center -> Rely on Eyes
+                    if (isEyesUp) {
+                        detectedAction = 'up';
+                    } else if (isEyesDown) {
+                        detectedAction = 'down';
+                    }
                 }
 
-                if (currentTime - state.lastLeftDetection < 5000 && state.lirikKiri >= 3) {
-                    capture();
-                    state.lirikKiri = 0;
-                    state.lastLeftDetection = currentTime;
+                // If no Vertical Action detected, check Horizontal Eyes
+                if (!detectedAction) {
+                    if (isEyesLeft) {
+                        detectedAction = 'left';
+                    } else if (isEyesRight) {
+                        detectedAction = 'right';
+                    }
                 }
-                state.lastDetection = currentTime;
             }
         }
 
-        // Original Left indices (15, 14) -> Now mapped to RIGHT
-        if (categories[15].score > 0.89 && categories[14].score > 0.89) {
-            if (currentTime - state.lastDetection > 500) {
-                setMovementDescription('Melirik ke kanan');
-                state.lirikKanan += 1;
-                state.lirikKiri = 0;
-                state.lirikBawah = 0;
-                state.lirikAtas = 0;
+        // --- 5. Application Logic ---
+        if (detectedAction) {
+            // Debounce: 200ms for responsiveness
+            if (currentTime - state.lastDetection > 200) {
 
-                if (currentTime - state.lastRightDetection > 5000) {
-                    state.lirikKanan = 0;
-                    state.lastRightDetection = currentTime;
-                }
+                // Update Description
+                if (detectedAction === 'left') setMovementDescription('Melirik ke kiri');
+                if (detectedAction === 'right') setMovementDescription('Melirik ke kanan');
+                if (detectedAction === 'up') setMovementDescription('Melirik ke atas');
+                if (detectedAction === 'down') setMovementDescription('Melirik ke bawah');
 
-                if (currentTime - state.lastRightDetection < 5000 && state.lirikKanan >= 3) {
-                    capture();
-                    state.lirikKanan = 0;
-                    state.lastRightDetection = currentTime;
-                }
+                // Update Counters
+                // Reset others
+                if (detectedAction !== 'left') state.lirikKiri = 0;
+                if (detectedAction !== 'right') state.lirikKanan = 0;
+                if (detectedAction !== 'up') state.lirikAtas = 0;
+                if (detectedAction !== 'down') state.lirikBawah = 0;
+
+                // Increment Current
+                if (detectedAction === 'left') state.lirikKiri++;
+                if (detectedAction === 'right') state.lirikKanan++;
+                if (detectedAction === 'up') state.lirikAtas++;
+                if (detectedAction === 'down') state.lirikBawah++;
+
+                // Trigger Capture Logic (Count >= 3 within 5s)
+                const checkCapture = (count, lastTimeProp, countProp) => {
+                    if (currentTime - state[lastTimeProp] > 5000) {
+                        state[countProp] = 1; // Reset to 1 since we just detected
+                        state[lastTimeProp] = currentTime;
+                    } else if (count >= 3) {
+                        capture();
+                        state[countProp] = 0;
+                        state[lastTimeProp] = currentTime;
+                    }
+                };
+
+                if (detectedAction === 'left') checkCapture(state.lirikKiri, 'lastLeftDetection', 'lirikKiri');
+                if (detectedAction === 'right') checkCapture(state.lirikKanan, 'lastRightDetection', 'lirikKanan');
+                if (detectedAction === 'up') checkCapture(state.lirikAtas, 'lastTopDetection', 'lirikAtas');
+                if (detectedAction === 'down') checkCapture(state.lirikBawah, 'lastDownDetection', 'lirikBawah');
+
                 state.lastDetection = currentTime;
             }
-        }
-
-        // Original Down indices (11, 12) -> Now mapped to UP
-        if (categories[11].score > 0.75 && categories[12].score > 0.75) {
-            if (currentTime - state.lastDetection > 500) {
-                setMovementDescription('Melirik ke atas');
-                state.lirikKanan = 0;
-                state.lirikKiri = 0;
-                state.lirikAtas += 1;
-                state.lirikBawah = 0;
-
-                if (currentTime - state.lastTopDetection > 5000) {
-                    state.lirikAtas = 0;
-                    state.lastTopDetection = currentTime;
-                }
-
-                if (currentTime - state.lastTopDetection < 5000 && state.lirikAtas >= 3) {
-                    capture();
-                    state.lirikAtas = 0;
-                    state.lastTopDetection = currentTime;
-                }
-                state.lastDetection = currentTime;
-            }
-        }
-
-        // Original Up indices (17, 18) -> Now mapped to DOWN
-        if (categories[17].score > 0.3 && categories[18].score > 0.3) {
-            if (currentTime - state.lastDetection > 500) {
-                setMovementDescription('Melirik ke bawah');
-                state.lirikKanan = 0;
-                state.lirikKiri = 0;
-                state.lirikBawah += 1;
-                state.lirikAtas = 0;
-
-                if (currentTime - state.lastDownDetection > 5000) {
-                    state.lirikBawah = 0;
-                    state.lastDownDetection = currentTime;
-                }
-
-                if (currentTime - state.lastDownDetection < 5000 && state.lirikBawah >= 3) {
-                    capture();
-                    state.lirikBawah = 0;
-                    state.lastDownDetection = currentTime;
-                }
-                state.lastDetection = currentTime;
-            }
+        } else {
+            // No movement
+            setMovementDescription('');
         }
     };
 
@@ -214,7 +256,9 @@ export default function CheckReadiness() {
                     // Drawing connectors logic can be added here if needed
                     // Currently only blendshapes are used for logic
                     if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
-                        detectMovement(results.faceBlendshapes[0]);
+                        if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+                            detectMovement(results.faceBlendshapes[0], results.faceLandmarks ? results.faceLandmarks[0] : null);
+                        }
                     }
                 });
             }

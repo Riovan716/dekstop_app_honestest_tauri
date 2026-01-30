@@ -5,6 +5,7 @@ use zip::write::{FileOptions, ZipWriter};
 use zip::CompressionMethod;
 use std::fs;
 use dirs;
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExamData {
@@ -209,5 +210,45 @@ pub async fn create_exam_result_file(
         filename: filename.clone(),
         file_path: zip_path.to_string_lossy().to_string(),
     })
+}
+
+#[tauri::command]
+pub async fn enter_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        // We use maximize instead of fullscreen so the Title Bar (Exit Button) remains visible
+        window.maximize().map_err(|e| e.to_string())?;
+        window.set_resizable(false).map_err(|e| e.to_string())?;
+        window.set_always_on_top(true).map_err(|e| e.to_string())?;
+        // window.set_decorations(true).map_err(|e| e.to_string())?; 
+
+        // Block keyboard shortcuts - Must run on main thread for the hook to work properly
+        let _ = app_handle.run_on_main_thread(move || {
+            if let Err(e) = crate::kiosk::start_keyboard_hook() {
+                eprintln!("Failed to start keyboard hook: {}", e);
+            }
+        });
+        
+        Ok(())
+    } else {
+        Err("Main window not found".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn exit_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.maximize().map_err(|e| e.to_string())?; // Keep maximized even when exiting kiosk logic
+        window.set_resizable(true).map_err(|e| e.to_string())?;
+        window.set_always_on_top(false).map_err(|e| e.to_string())?;
+        
+        // Unblock keyboard shortcuts
+        let _ = app_handle.run_on_main_thread(move || {
+            crate::kiosk::stop_keyboard_hook();
+        });
+
+        Ok(())
+    } else {
+        Err("Main window not found".to_string())
+    }
 }
 

@@ -54,7 +54,7 @@ export default function ReviewPage() {
     const correctAnswer = question.correct_answer;
     const questionType = question.type_ || question.type || (question.options ? 'multiple_choice' : 'essay');
     const isTrueFalse = questionType === 'true_false' || questionType === 'true/false';
-    
+
     let isCorrect = false;
     if (answer !== undefined && correctAnswer !== undefined) {
       if (isTrueFalse) {
@@ -65,7 +65,7 @@ export default function ReviewPage() {
         isCorrect = answer === correctAnswer;
       }
     }
-    
+
     // Get point from question, default to 1
     const point = question.point !== undefined && question.point !== null ? question.point : 1;
     return {
@@ -107,7 +107,7 @@ export default function ReviewPage() {
                       const answer = selectedAnswers[currentQuestion.id];
                       const questionType = currentQuestion.type_ || currentQuestion.type || 'multiple_choice';
                       const isTrueFalse = questionType === 'true_false' || questionType === 'true/false';
-                      
+
                       // Check if this option is selected
                       let isSelected = false;
                       if (answer !== undefined && answer !== null) {
@@ -121,7 +121,7 @@ export default function ReviewPage() {
                           isSelected = String(answer) === String(option);
                         }
                       }
-                      
+
                       // Check if this option is the correct answer
                       let isCorrectOption = false;
                       if (currentQuestion.correct_answer !== undefined && currentQuestion.correct_answer !== null) {
@@ -135,11 +135,11 @@ export default function ReviewPage() {
                           isCorrectOption = String(option) === String(currentQuestion.correct_answer);
                         }
                       }
-                      
+
                       // Hijau jika dipilih dan benar, merah jika dipilih dan salah
                       const isCorrect = isSelected && isCorrectOption;
                       const isIncorrect = isSelected && !isCorrectOption;
-                      
+
                       return (
                         <div
                           key={index}
@@ -155,7 +155,7 @@ export default function ReviewPage() {
                       {selectedAnswers[currentQuestion.id] ? (
                         <>
                           <p className="essay-label">Jawaban Anda:</p>
-                          <p className={`essay-answer ${questionScore.isCorrect ? 'correct' : 'incorrect'}`}>
+                          <p className="essay-answer gray">
                             {currentQuestion.type_ === 'true_false' || currentQuestion.type_ === 'true/false'
                               ? normalizeAnswer(selectedAnswers[currentQuestion.id])
                               : selectedAnswers[currentQuestion.id]}
@@ -178,10 +178,18 @@ export default function ReviewPage() {
                   )}
                 </div>
 
-                <div className="review-point-display">
-                  <span className="point-label">Point :</span>
-                  <span className="point-value">{questionScore.earned} of {questionScore.total}</span>
-                </div>
+                {examData.show_grade && (
+                  (() => {
+                    const qType = currentQuestion.type_ || currentQuestion.type || (currentQuestion.options ? 'multiple_choice' : 'essay');
+                    const isEssay = qType === 'essay';
+                    return !isEssay ? (
+                      <div className="review-point-display">
+                        <span className="point-label">Point :</span>
+                        <span className="point-value">{questionScore.earned} of {questionScore.total}</span>
+                      </div>
+                    ) : null;
+                  })()
+                )}
               </>
             )}
           </div>
@@ -196,7 +204,7 @@ export default function ReviewPage() {
                 const answer = selectedAnswers[q.id];
                 const isActive = currentQuestionIndex === index;
                 const isAnswered = answer !== undefined;
-                
+
                 return (
                   <button
                     key={q.id || index}
@@ -211,12 +219,20 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          {examData.show_grade && examResult && (
+          {examData.show_grade && (
             <div className="sidebar-section">
               <h3 className="sidebar-title">Grade</h3>
               <div className="grade-display">
                 <div className="grade-value-large">
-                  {examResult.total_score || 0} / {examResult.expected_score || 0}
+                  {examData.questions.reduce((acc, q) => {
+                    const qType = q.type_ || q.type || (q.options ? 'multiple_choice' : 'essay');
+                    if (qType === 'essay') return acc;
+                    return acc + getQuestionScore(q).earned;
+                  }, 0).toFixed(2)} / {examData.questions.reduce((acc, q) => {
+                    const qType = q.type_ || q.type || (q.options ? 'multiple_choice' : 'essay');
+                    if (qType === 'essay') return acc;
+                    return acc + (q.point || 1);
+                  }, 0).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -241,9 +257,9 @@ export default function ReviewPage() {
         </div>
         <div className="footer-info">
           <span>100%</span>
-          <span>{new Date().toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: '2-digit', 
+          <span>{new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
@@ -251,6 +267,6 @@ export default function ReviewPage() {
           <span className="fullscreen-icon">⛶</span>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
