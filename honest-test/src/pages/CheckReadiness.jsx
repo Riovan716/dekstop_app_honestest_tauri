@@ -296,10 +296,10 @@ export default function CheckReadiness() {
     }, [faceLandmarker]);
 
     return (
-        <div className="w-screen flex items-center flex-col justify-center bg-gray-50" style={{ height: '100dvh', overflow: 'hidden' }}>
-            <h1 className="text-center font-bold text-3xl mb-5 text-gray-800">Check Readiness</h1>
+        <div className="w-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-4" style={{ height: '100dvh', overflow: 'hidden' }}>
+            <h1 className="text-center font-bold text-2xl md:text-3xl text-gray-800 shrink-0">Check Readiness</h1>
 
-            <div className="relative mt-5 rounded-xl overflow-hidden shadow-lg">
+            <div className="relative w-full max-w-[640px] aspect-[4/3] max-h-[45vh] rounded-xl overflow-hidden shadow-lg shrink min-h-0 bg-black">
                 <Webcam
                     ref={webcamRef}
                     audio={false}
@@ -308,13 +308,11 @@ export default function CheckReadiness() {
                         frameRate: { ideal: 15, max: 25 }
                     }}
                     screenshotFormat="image/jpeg"
-                    className="object-cover"
-                    style={{ width: 640, height: 480 }}
+                    className="w-full h-full object-contain"
                 />
                 <canvas
                     ref={canvasRef}
-                    className="absolute top-0 left-0 z-10 -scale-x-100"
-                    style={{ width: 640, height: 480 }}
+                    className="absolute top-0 left-0 w-full h-full object-contain -scale-x-100"
                 />
 
                 {/* Placeholder if webcam is loading */}
@@ -325,15 +323,15 @@ export default function CheckReadiness() {
                 )}
             </div>
 
-            <div className="border rounded-lg p-5 mt-5 max-w-xl w-full text-center bg-white shadow-sm">
-                <h3 className="font-bold text-xl mb-3 text-gray-700">Detection Result</h3>
+            <div className="border rounded-lg p-4 max-w-xl w-full text-center bg-white shadow-sm shrink-0">
+                <h3 className="font-bold text-lg mb-2 text-gray-700">Detection Result</h3>
                 <span className="block text-lg text-blue-600 font-semibold">{movementDescription || "Normal"}</span>
-                <span className="block mt-2 text-gray-600">{banyakOrang}</span>
+                <span className="block mt-1 text-gray-600 text-sm">{banyakOrang}</span>
             </div>
 
             <Link
                 to="/main"
-                className="mt-8 flex items-center px-6 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-700 transition-colors"
+                className="flex items-center px-6 py-3 bg-gray-900 text-white rounded-md hover:bg-gray-700 transition-colors shrink-0 mb-8"
             >
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Main
             </Link>
