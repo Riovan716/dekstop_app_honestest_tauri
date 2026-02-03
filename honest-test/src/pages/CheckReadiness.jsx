@@ -296,7 +296,7 @@ export default function CheckReadiness() {
     }, [faceLandmarker]);
 
     return (
-        <div className="w-screen h-screen flex items-center flex-col justify-center bg-gray-50">
+        <div className="w-screen flex items-center flex-col justify-center bg-gray-50" style={{ height: '100dvh', overflow: 'hidden' }}>
             <h1 className="text-center font-bold text-3xl mb-5 text-gray-800">Check Readiness</h1>
 
             <div className="relative mt-5 rounded-xl overflow-hidden shadow-lg">

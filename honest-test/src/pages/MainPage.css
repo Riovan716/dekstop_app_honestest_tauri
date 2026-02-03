@@ -145,7 +145,8 @@
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  padding: 24px 40px;
+  padding: 24px 40px 50px 40px;
+  /* Increased bottom padding to lift buttons above taskbar */
   background: white;
 }
 
