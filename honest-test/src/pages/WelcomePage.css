@@ -1,10 +1,11 @@
 .welcome-page {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .page-header {
@@ -34,20 +35,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 4vmin;
+  min-height: 0;
 }
 
 .welcome-screen,
 .insert-data-screen {
   background: white;
   border-radius: 12px;
-  padding: 60px 80px;
+  padding: 6vmin 8vmin;
   width: 100%;
   max-width: 600px;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .logo-container {

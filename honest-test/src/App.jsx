@@ -15,7 +15,6 @@ function AppContent() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitPassword, setExitPassword] = useState('');
   const [examTitle, setExamTitle] = useState('');
-  const [zoomLevel, setZoomLevel] = useState(1);
   const isExitingRef = useRef(false);
   const location = useLocation();
   const locationRef = useRef(location);
@@ -133,34 +132,6 @@ function AppContent() {
 
     updateKioskLevel();
   }, [location]);
-
-  // Automatic Responsive Zoom Logic
-  useEffect(() => {
-    const handleResize = () => {
-      // Resolusi dasar desain (Bisa disesuaikan dengan resolusi laptop pengembangan Anda)
-      // Contoh: 1536x864 adalah resolusi umum laptop 15.6 inch
-      const BASE_WIDTH = 1536;
-      const BASE_HEIGHT = 864;
-
-      const widthRatio = window.innerWidth / BASE_WIDTH;
-      const heightRatio = window.innerHeight / BASE_HEIGHT;
-
-      // Gunakan rasio terkecil agar konten muat baik secara lebar maupun tinggi
-      const newZoom = Math.min(widthRatio, heightRatio);
-
-      // Batasi zoom agar tidak terlalu kecil (min 50%) atau terlalu besar (max 150%)
-      setZoomLevel(Math.max(0.5, Math.min(newZoom, 1.5)));
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Panggil saat awal load
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.zoom = zoomLevel;
-  }, [zoomLevel]);
 
   const handleConfirmExit = async () => {
     try {
