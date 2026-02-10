@@ -235,33 +235,47 @@ export default function CheckReadiness() {
             await faceLandmarker.setOptions({ runningMode: 'VIDEO' });
         }
 
-        const processFrame = async () => {
-            if (!webcamRef.current || !webcamRef.current.video) return; // check again
+        let lastVideoTime = -1;
+        let lastProcessTime = -1;
 
-            const startTimeMs = performance.now();
-            let results;
-            try {
-                results = faceLandmarker.detectForVideo(video, startTimeMs);
-            } catch (e) {
-                console.error(e);
+        const processFrame = async () => {
+            if (!webcamRef.current || !webcamRef.current.video) return;
+
+            const now = performance.now();
+            // Throttle: only process every ~150ms (approx 6-7 FPS)
+            if (now - lastProcessTime < 150) {
                 requestAnimationFrame(processFrame);
                 return;
             }
+            lastProcessTime = now;
 
-            setBanyakOrang(getBanyakOrangMessage(results.faceLandmarks.length));
+            const startTimeMs = performance.now();
 
-            if (results.faceLandmarks && ctx) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                results.faceLandmarks.forEach(() => {
-                    // Drawing connectors logic can be added here if needed
-                    // Currently only blendshapes are used for logic
-                    if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+            // Only detect if video time has advanced
+            if (video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+
+                let results;
+                try {
+                    results = faceLandmarker.detectForVideo(video, startTimeMs);
+                } catch (e) {
+                    console.error(e);
+                    requestAnimationFrame(processFrame);
+                    return;
+                }
+
+                setBanyakOrang(getBanyakOrangMessage(results.faceLandmarks.length));
+
+                if (results.faceLandmarks && ctx) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    results.faceLandmarks.forEach(() => {
                         if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
                             detectMovement(results.faceBlendshapes[0], results.faceLandmarks ? results.faceLandmarks[0] : null);
                         }
-                    }
-                });
+                    });
+                }
             }
+
             requestAnimationFrame(processFrame);
         };
         processFrame();

@@ -10,6 +10,7 @@ import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { submitExamResult } from '../api/exam.js';
 import logo from '../assets/logo.png';
 import submitIcon from '../assets/submit.png';
+import exitIcon from '../assets/exit.png';
 import './ExamPage.css';
 
 export default function ExamPage() {
@@ -36,6 +37,12 @@ export default function ExamPage() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
 
+  // Exit Modal State
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitPassword, setExitPassword] = useState('');
+  const [exitError, setExitError] = useState('');
+  const [resumeError, setResumeError] = useState('');
+
   // --- Proctoring Refs ---
   const lastCheatingTime = useRef(0);
   const lookAwayStartTime = useRef(null);
@@ -52,7 +59,6 @@ export default function ExamPage() {
     loadUserData();
   }, []);
 
-  // 2. Load AI Model
   useEffect(() => {
     if (examData && examData.enable_proctoring) {
       const createFaceLandmarker = async () => {
@@ -76,20 +82,41 @@ export default function ExamPage() {
     }
   }, [examData]);
 
+  // Cleanup AI Model
+  useEffect(() => {
+    return () => {
+      if (faceLandmarker) {
+        faceLandmarker.close();
+      }
+    };
+  }, [faceLandmarker]);
+
   // 3. AI Prediction Loop
   useEffect(() => {
     // Stop prediction if blocked OR if WARNING modal is open (so we don't spam warnings)
     if (!faceLandmarker || !examData?.enable_proctoring || isExamBlocked || showWarningModal) return;
 
     let animationFrameId;
+    let lastProcessTime = 0;
+
     const predictWebcam = async () => {
       if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
         const now = Date.now();
-        const startTimeMs = performance.now();
-        const results = faceLandmarker.detectForVideo(webcamRef.current.video, startTimeMs);
 
-        if (results.faceBlendshapes && results.faceBlendshapes.length > 0 && results.faceLandmarks) {
-          detectCheating(results.faceBlendshapes[0], results.faceLandmarks[0], now);
+        // Throttle to ~150ms (6-7 FPS)
+        if (now - lastProcessTime > 150) {
+          lastProcessTime = now;
+          const startTimeMs = performance.now();
+
+          try {
+            const results = faceLandmarker.detectForVideo(webcamRef.current.video, startTimeMs);
+
+            if (results.faceBlendshapes && results.faceBlendshapes.length > 0 && results.faceLandmarks) {
+              detectCheating(results.faceBlendshapes[0], results.faceLandmarks[0], now);
+            }
+          } catch (e) {
+            console.error("AI Detection Error:", e);
+          }
         }
       }
       animationFrameId = requestAnimationFrame(predictWebcam);
@@ -222,17 +249,36 @@ export default function ExamPage() {
     if (resumePassword === correctPassword) {
       setIsExamBlocked(false);
       setResumePassword('');
+      setResumeError('');
       setCheatingCount(0); // Reset limit to give another full chance
       // Also clear warning if any open (though blocked modal usually supersedes it)
       setShowWarningModal(false);
     } else {
-      alert('Incorrect Password');
+      setResumeError('Password Salah');
     }
   };
 
   const handleCloseWarningModal = () => {
     setShowWarningModal(false);
     // Detection will resume automatically via effect dependency
+  };
+
+  const handleExitExam = async () => {
+    const correctPassword = examData.end_password || 'admin123';
+    if (exitPassword === correctPassword) {
+      try {
+        await invoke('exit_kiosk_mode');
+        // Clear exam state when exiting manually? Maybe not, allow resume?
+        // User asked to "keluar", which usually means quit.
+        // Assuming quit = cancel/abort or just leave.
+        navigate('/main');
+      } catch (error) {
+        console.error('Failed to exit kiosk mode:', error);
+        navigate('/main');
+      }
+    } else {
+      setExitError('Password Salah');
+    }
   };
 
 
@@ -813,7 +859,7 @@ export default function ExamPage() {
       {showWarningModal && (
         <div className="modal-overlay" style={{ zIndex: 9998 }}>
           <div className="modal-content blocked-modal" style={{ maxWidth: '450px', border: '2px solid #f59e0b' }}>
-            <div className="blocked-icon" style={{ fontSize: '40px' }}>⚠️</div>
+
             <h2 className="blocked-title" style={{ color: '#d97706' }}>Peringatan Proctoring</h2>
             <p style={{ fontSize: '16px', color: '#333', marginTop: '10px', fontWeight: '500' }}>
               {warningMessage}
@@ -840,7 +886,6 @@ export default function ExamPage() {
       {isExamBlocked && (
         <div className="modal-overlay" style={{ zIndex: 9999 }}>
           <div className="modal-content blocked-modal">
-            <div className="blocked-icon">🔒</div>
             <h2 className="blocked-title">Ujian Terhenti</h2>
             <p className="blocked-title" style={{ fontSize: '16px', color: '#666', marginTop: '10px' }}>
               Anda terdeteksi melakukan kecurangan melebihi batas yang ditentukan (Limit: {examData.cheating_limit}).
@@ -851,8 +896,12 @@ export default function ExamPage() {
               className="blocked-input"
               placeholder="Masukkan End Password"
               value={resumePassword}
-              onChange={e => setResumePassword(e.target.value)}
+              onChange={e => {
+                setResumePassword(e.target.value);
+                setResumeError('');
+              }}
             />
+            {resumeError && <p style={{ color: '#ef4444', marginTop: '-10px', marginBottom: '10px' }}>{resumeError}</p>}
             <button className="btn-resume" onClick={handleResumeExam}>Lanjutkan Ujian</button>
           </div>
         </div>
@@ -1000,7 +1049,13 @@ export default function ExamPage() {
             hour: '2-digit',
             minute: '2-digit'
           })}</span>
-          <span className="fullscreen-icon">⛶</span>
+          <button
+            className="btn-footer-exit"
+            onClick={() => setShowExitModal(true)}
+            title="Exit Exam"
+          >
+            <img src={exitIcon} alt="Exit" className="footer-exit-icon" />
+          </button>
         </div>
       </div>
 
@@ -1115,6 +1170,51 @@ export default function ExamPage() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Exit Exam Modal */}
+      {
+        showExitModal && (
+          <div className="modal-overlay" style={{ zIndex: 9999 }}>
+            <div className="modal-content blocked-modal">
+
+              <h2 className="blocked-title">Keluar Ujian</h2>
+              <p className="blocked-subtext">Masukkan End Password untuk keluar dari ujian.</p>
+              <input
+                type="password"
+                className="blocked-input"
+                placeholder="Masukkan End Password"
+                value={exitPassword}
+                onChange={(e) => {
+                  setExitPassword(e.target.value);
+                  setExitError('');
+                }}
+              />
+              {exitError && <p style={{ color: '#ef4444', marginTop: '-10px', marginBottom: '10px' }}>{exitError}</p>}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
+                <button
+                  className="btn-resume"
+                  style={{ backgroundColor: '#6b7280' }}
+                  onClick={() => {
+                    setShowExitModal(false);
+                    setExitPassword('');
+                    setExitError('');
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  className="btn-resume"
+                  style={{ backgroundColor: '#ef4444' }}
+                  onClick={handleExitExam}
+                >
+                  Keluar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
+
   );
 }

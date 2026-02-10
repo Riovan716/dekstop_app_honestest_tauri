@@ -163,10 +163,9 @@
 }
 
 /* Blocked Exam Modal */
+/* Note: .modal-content provides base styles */
 .blocked-modal {
   text-align: center;
-  max-width: 400px;
-  padding: 30px;
 }
 
 .blocked-icon {
@@ -176,18 +175,32 @@
 
 .blocked-title {
   color: #ef4444;
-  margin-bottom: 10px;
-  font-size: 24px;
+  margin-bottom: 12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.blocked-subtext {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 24px;
+  line-height: 1.5;
 }
 
 .blocked-input {
   width: 100%;
-  padding: 12px;
-  margin-bottom: 15px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   font-size: 16px;
-  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.blocked-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .btn-resume {
@@ -195,11 +208,13 @@
   color: white;
   padding: 12px 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   width: 100%;
   font-size: 16px;
   cursor: pointer;
   font-weight: 600;
+  transition: background-color 0.2s;
+  margin-top: 12px;
 }
 
 .btn-resume:hover {
@@ -452,15 +467,18 @@
   z-index: 1000;
 }
 
-.submit-modal {
+/* Base Modal Content Style (matches WaitingPage) */
+.modal-content {
   background: white;
   border-radius: 12px;
-  padding: 40px;
+  padding: 32px;
   width: 90%;
   max-width: 500px;
   position: relative;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
+
+
 
 .modal-close {
   position: absolute;
@@ -515,7 +533,7 @@
 }
 
 .submit-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #1a1a1a;
   margin: 0;
@@ -746,10 +764,7 @@
 }
 
 /* Confirm Submit Modal Styles */
-.confirm-modal {
-  max-width: 500px;
-  width: 90%;
-}
+/* .confirm-modal Inherits from .modal-content */
 
 .confirm-header {
   display: flex;
@@ -760,7 +775,7 @@
 }
 
 .confirm-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #1a1a1a;
   margin: 0;
@@ -947,4 +962,30 @@
   margin-top: 16px;
   margin-bottom: 8px;
   font-size: 14px;
+}
+
+.btn-footer-exit {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 8px;
+  margin-left: 10px;
+}
+
+.btn-footer-exit:hover {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+}
+
+.footer-exit-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }

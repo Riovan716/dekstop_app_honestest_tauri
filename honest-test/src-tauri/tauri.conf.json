@@ -18,8 +18,8 @@
         "resizable": true,
         "fullscreen": false,
         "maximized": true,
-        "minimizable": false,
-        "maximizable": false,
+        "minimizable": true,
+        "maximizable": true,
         "closable": true
       }
     ],

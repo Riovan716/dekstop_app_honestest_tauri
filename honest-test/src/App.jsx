@@ -1,15 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { load } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
-import WelcomePage from './pages/WelcomePage';
-import MainPage from './pages/MainPage';
-import WaitingPage from './pages/WaitingPage';
-import ExamPage from './pages/ExamPage';
-import ReviewPage from './pages/ReviewPage';
-import CheckReadiness from './pages/CheckReadiness';
+
+// Lazy Load Pages
+const WelcomePage = lazy(() => import('./pages/WelcomePage'));
+const MainPage = lazy(() => import('./pages/MainPage'));
+const WaitingPage = lazy(() => import('./pages/WaitingPage'));
+const ExamPage = lazy(() => import('./pages/ExamPage'));
+const ReviewPage = lazy(() => import('./pages/ReviewPage'));
+const CheckReadiness = lazy(() => import('./pages/CheckReadiness'));
+
 import ExitModal from './components/ExitModal';
+
+// Loading Component
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center h-screen bg-gray-50">
+    <div className="text-xl font-semibold text-gray-600">Loading...</div>
+  </div>
+);
 
 function AppContent() {
   const [showExitModal, setShowExitModal] = useState(false);
@@ -153,15 +163,17 @@ function AppContent() {
         requiredPassword={exitPassword}
         examTitle={examTitle}
       />
-      <Routes>
-        <Route path="/" element={<WelcomePage />} />
-        <Route path="/main" element={<MainPage />} />
-        <Route path="/waiting" element={<WaitingPage />} />
-        <Route path="/exam" element={<ExamPage />} />
-        <Route path="/review" element={<ReviewPage />} />
-        <Route path="/check-readiness" element={<CheckReadiness />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/" element={<WelcomePage />} />
+          <Route path="/main" element={<MainPage />} />
+          <Route path="/waiting" element={<WaitingPage />} />
+          <Route path="/exam" element={<ExamPage />} />
+          <Route path="/review" element={<ReviewPage />} />
+          <Route path="/check-readiness" element={<CheckReadiness />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </>
   );
 }
