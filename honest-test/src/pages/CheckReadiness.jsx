@@ -182,12 +182,12 @@ export default function CheckReadiness() {
                 if (detectedAction === 'up') state.lirikAtas++;
                 if (detectedAction === 'down') state.lirikBawah++;
 
-                // Trigger Capture Logic (Count >= 3 within 5s)
+                // Trigger Capture Logic (Count >= 5 within 5s)
                 const checkCapture = (count, lastTimeProp, countProp) => {
                     if (currentTime - state[lastTimeProp] > 5000) {
                         state[countProp] = 1; // Reset to 1 since we just detected
                         state[lastTimeProp] = currentTime;
-                    } else if (count >= 3) {
+                    } else if (count >= 5) {
                         capture();
                         state[countProp] = 0;
                         state[lastTimeProp] = currentTime;

@@ -247,17 +247,6 @@ export default function MainPage() {
             >
               Open Exam Config
             </button>
-
-            <button
-              className="btn-main-action btn-get-credential"
-              onClick={() => {
-                // This can be implemented later for credential file generation
-                alert('Get Credential File feature coming soon');
-              }}
-            >
-              <img src={getIcon} alt="Get Credential" className="btn-icon-img" />
-              Get Credential File
-            </button>
           </div>
         </div>
       </div>

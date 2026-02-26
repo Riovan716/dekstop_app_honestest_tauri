@@ -30,6 +30,7 @@ export default function ExamPage() {
   const [faceLandmarker, setFaceLandmarker] = useState(null);
   // removed toast state: const [proctoringFeedback, setProctoringFeedback] = useState(null); 
   const [cheatingCount, setCheatingCount] = useState(0);
+  const [proctoringLogs, setProctoringLogs] = useState([]);
   const [isExamBlocked, setIsExamBlocked] = useState(false);
   const [resumePassword, setResumePassword] = useState('');
 
@@ -48,6 +49,7 @@ export default function ExamPage() {
   const lookAwayStartTime = useRef(null);
   const lookAwayCountWindow = useRef([]);
   const currentLookDirection = useRef('center');
+  const multiFaceStartTime = useRef(null);
 
   const navigate = useNavigate();
 
@@ -71,7 +73,7 @@ export default function ExamPage() {
             },
             outputFaceBlendshapes: true,
             runningMode: 'VIDEO',
-            numFaces: 1
+            numFaces: 3
           });
           setFaceLandmarker(landmarker);
         } catch (e) {
@@ -111,8 +113,26 @@ export default function ExamPage() {
           try {
             const results = faceLandmarker.detectForVideo(webcamRef.current.video, startTimeMs);
 
-            if (results.faceBlendshapes && results.faceBlendshapes.length > 0 && results.faceLandmarks) {
-              detectCheating(results.faceBlendshapes[0], results.faceLandmarks[0], now);
+            if (results.faceLandmarks) {
+              // --- Check for multiple faces (> 5 seconds) ---
+              if (results.faceLandmarks.length >= 2) {
+                if (!multiFaceStartTime.current) {
+                  multiFaceStartTime.current = now;
+                } else {
+                  const duration = now - multiFaceStartTime.current;
+                  if (duration > 5000) {
+                    triggerCheating("Terdeteksi lebih dari 1 orang (> 5 detik)");
+                    multiFaceStartTime.current = null;
+                  }
+                }
+              } else {
+                multiFaceStartTime.current = null;
+              }
+
+              // Evaluate cheating logic for main face
+              if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+                detectCheating(results.faceBlendshapes[0], results.faceLandmarks[0], now);
+              }
             }
           } catch (e) {
             console.error("AI Detection Error:", e);
@@ -132,6 +152,17 @@ export default function ExamPage() {
     const now = Date.now();
 
     if (now - lastCheatingTime.current > 2000) {
+      let screenshot = null;
+      if (webcamRef.current) {
+        screenshot = webcamRef.current.getScreenshot();
+      }
+
+      setProctoringLogs(prev => [...prev, {
+        timestamp: new Date().toISOString(),
+        reason: reason,
+        image: screenshot
+      }]);
+
       setCheatingCount(prev => {
         const newCount = prev + 1;
         console.log(`Cheating detected: ${reason}. Total: ${newCount}`);
@@ -214,26 +245,25 @@ export default function ExamPage() {
 
     // --- Rules ---
     if (detectedAction) {
-      // Rule 1: Duration check removed as per request
-      /*
+      // Rule 1: Duration check (> 3 detik)
       if (!lookAwayStartTime.current) {
         lookAwayStartTime.current = now;
       } else {
         const duration = now - lookAwayStartTime.current;
         if (duration > 3000) {
-          triggerCheating("Melihat ke arah lain terlalu lama (> 3 detik)");
+          const arah = detectedAction === 'left' ? 'kiri' : (detectedAction === 'right' ? 'kanan' : (detectedAction === 'up' ? 'atas' : 'bawah'));
+          triggerCheating(`Melihat ke ${arah} terlalu lama (> 3 detik)`);
           lookAwayStartTime.current = null;
         }
       }
-      */
 
-      // Rule 2: 3x in 5s
+      // Rule 2: 5x in 5s
       if (currentLookDirection.current !== detectedAction) {
         lookAwayCountWindow.current = lookAwayCountWindow.current.filter(t => now - t <= 5000);
         lookAwayCountWindow.current.push(now);
 
-        if (lookAwayCountWindow.current.length >= 3) {
-          triggerCheating("Gerakan mencurigakan berulang (3x dalam 5 detik)");
+        if (lookAwayCountWindow.current.length >= 5) {
+          triggerCheating("Gerakan mencurigakan berulang (5x dalam 5 detik)");
           lookAwayCountWindow.current = [];
         }
       }
@@ -331,6 +361,7 @@ export default function ExamPage() {
           questions: examData.questions,
           answers: selectedAnswers,
           currentIndex: currentQuestionIndex,
+          proctoringLogs: proctoringLogs,
           startTime: examStartTime.toISOString(),
           lastSaved: new Date().toISOString()
         };
@@ -346,7 +377,7 @@ export default function ExamPage() {
     // Debounce save if needed, but for now direct save on effect is safer for low-frequency updates
     const timeoutId = setTimeout(saveState, 500);
     return () => clearTimeout(timeoutId);
-  }, [examData, selectedAnswers, currentQuestionIndex, examStartTime]);
+  }, [examData, selectedAnswers, currentQuestionIndex, examStartTime, proctoringLogs]);
 
   useEffect(() => {
     if (!examData || !examStartTime) {
@@ -470,12 +501,14 @@ export default function ExamPage() {
       let initialAnswers = {};
       let initialIndex = 0;
       let initialStartTime = null;
+      let initialLogs = [];
 
       if (savedState) {
         console.log('Restoring saved exam state found for ID:', examId, 'User:', nim);
         processedQuestions = savedState.questions;
         initialAnswers = savedState.answers || {};
         initialIndex = savedState.currentIndex || 0;
+        initialLogs = savedState.proctoringLogs || [];
         if (savedState.startTime) {
           initialStartTime = new Date(savedState.startTime);
         }
@@ -554,6 +587,7 @@ export default function ExamPage() {
       setExamData(processedData);
       setSelectedAnswers(initialAnswers);
       setCurrentQuestionIndex(initialIndex);
+      setProctoringLogs(initialLogs);
 
       if (initialStartTime) {
         setExamStartTime(initialStartTime);
@@ -656,7 +690,7 @@ export default function ExamPage() {
         },
         answer: selectedAnswers,
         questions: examData.questions,
-        proctoringLog: [], // TODO: Add proctoring log if needed
+        proctoringLog: proctoringLogs,
         submit_id: submitId,
       };
 
@@ -849,6 +883,7 @@ export default function ExamPage() {
             ref={webcamRef}
             audio={false}
             mirrored={true}
+            screenshotFormat="image/jpeg"
             videoConstraints={{ frameRate: { ideal: 15, max: 25 } }}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
