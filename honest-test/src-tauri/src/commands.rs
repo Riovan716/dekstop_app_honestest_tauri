@@ -242,6 +242,7 @@ pub async fn enter_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String
 
         // 3. Block keyboard shortcuts - Must run on main thread for the hook to work properly
         let _ = app_handle.run_on_main_thread(move || {
+            crate::kiosk::close_other_windows();
             if let Err(e) = crate::kiosk::start_keyboard_hook() {
                 eprintln!("Failed to start keyboard hook: {}", e);
             }

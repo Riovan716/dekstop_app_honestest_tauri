@@ -7,8 +7,10 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, SetWindowsHookExA, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, WH_KEYBOARD_LL,
-    SendNotifyMessageA,
+    SendNotifyMessageA, EnumWindows, GetWindowThreadProcessId, IsWindowVisible, ShowWindow, SHOW_WINDOW_CMD
 };
+use windows::Win32::Foundation::HWND;
+use windows::core::BOOL;
 
 static HOOK_HANDLE: AtomicUsize = AtomicUsize::new(0);
 static KIOSK_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -19,6 +21,47 @@ pub fn set_kiosk_active(active: bool) {
 
 pub fn is_kiosk_active() -> bool {
     KIOSK_ACTIVE.load(Ordering::SeqCst)
+}
+
+unsafe extern "system" fn minimize_windows_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
+    if IsWindowVisible(hwnd).0 == 0 {
+        return BOOL(1);
+    }
+
+    let mut process_id = 0;
+    GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+
+    let current_process_id = std::process::id();
+
+    // Minimize other visible windows (SW_MINIMIZE = 6)
+    if process_id != current_process_id && process_id != 0 {
+        let _ = ShowWindow(hwnd, SHOW_WINDOW_CMD(6));
+    }
+
+    BOOL(1)
+}
+
+pub fn close_other_windows() {
+    let ps_script = r#"
+        $exclude = @('honest-test', 'Antigravity', 'Code', 'Cursor', 'devenv', 'node', 'npm', 'cmd', 'powershell', 'pwsh', 'WindowsTerminal', 'explorer', 'ApplicationFrameHost', 'TextInputHost', 'Taskmgr', 'SystemSettings', 'msedgewebview2')
+        
+        # Kill Browsers directly
+        Get-Process -Name chrome,msedge,firefox,brave,opera -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        
+        # Kill other apps with UI
+        Get-Process | Where-Object { 
+            $_.MainWindowHandle -ne 0 -and
+            $exclude -notcontains $_.ProcessName
+        } | Stop-Process -Force -ErrorAction SilentlyContinue
+    "#;
+
+    let _ = std::process::Command::new("powershell")
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script])
+        .spawn();
+
+    unsafe {
+        let _ = EnumWindows(Some(minimize_windows_proc), LPARAM(0));
+    }
 }
 
 // Hook implementation
