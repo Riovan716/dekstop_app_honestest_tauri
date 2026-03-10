@@ -15,8 +15,8 @@ function getApiBaseUrl() {
     return apiUrl.replace(/\/$/, '');
   }
 
-  // Default to localhost:3000 (backend default port)
-  return 'http://localhost:3000';
+  // Default to live hosting
+  return 'https://honesttest.cloud';
 }
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -115,7 +115,7 @@ export async function apiRequest(path, options = {}) {
   }
 
   console.log(`API Request: ${method} ${API_BASE_URL}${path}`);
-  
+
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, config);

@@ -44,6 +44,9 @@ export default function ExamPage() {
   const [exitError, setExitError] = useState('');
   const [resumeError, setResumeError] = useState('');
 
+  // Overview State
+  const [showOverview, setShowOverview] = useState(false);
+
   // --- Proctoring Refs ---
   const lastCheatingTime = useRef(0);
   const lookAwayStartTime = useRef(null);
@@ -653,10 +656,17 @@ export default function ExamPage() {
     }
 
     setCurrentQuestionIndex(index);
+    if (showOverview) {
+      setShowOverview(false);
+    }
   };
 
   const handleSubmit = async (isAutoSubmit = false) => {
     if (!isAutoSubmit) {
+      if (!showOverview) {
+        setShowOverview(true);
+        return;
+      }
       setShowConfirmModal(true);
       return;
     }
@@ -789,7 +799,7 @@ export default function ExamPage() {
 
         setSubmitMessage({
           type: 'success',
-          text: `Koneksi bermasalah: ${isTimeout ? 'Waktu habis (Request Timed Out)' : errorMessage}\n\nTAPI JANGAN KHAWATIR!\nData ujian Anda AMAN dan tersimpan di komputer ini.\n\nLokasi file:\n${temp.file_path || 'Documents/honestest/exam_results/'}\n\nSilahkan kirim file tersebut manual ke Admin/Dosen.`,
+          text: `Koneksi bermasalah: ${isTimeout ? 'Waktu habis (Request Timed Out)' : errorMessage}\n\nData ujian tetap aman dan telah disimpan ke komputer ini secara lokal.\n\nLokasi file:\n${temp.file_path || 'Documents/honestest/exam_results/'}\n\nSilakan kirimkan file tersebut secara manual ke Pengawas Ujian / Administrator.`,
         });
 
         // Navigate after 6 seconds - give more time to read the Important message
@@ -876,20 +886,6 @@ export default function ExamPage() {
 
   return (
     <div className="exam-page">
-      {/* Proctoring UI */}
-      {examData && examData.enable_proctoring && (
-        <div className="webcam-hidden">
-          <Webcam
-            ref={webcamRef}
-            audio={false}
-            mirrored={true}
-            screenshotFormat="image/jpeg"
-            videoConstraints={{ frameRate: { ideal: 15, max: 25 } }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-      )}
-
       {/* Warning Modal (Non-blocking, but interrupts) */}
       {showWarningModal && (
         <div className="modal-overlay" style={{ zIndex: 9998 }}>
@@ -943,96 +939,143 @@ export default function ExamPage() {
       )}
       <div className="exam-content">
         {/* Main Content Area - Left */}
-        <div className="exam-main-content">
-          <div className="question-container">
-            <h2 className="question-text">
-              {currentQuestionIndex + 1}. {currentQuestion.question || currentQuestion.content || 'No question text'}
-            </h2>
-
-            {(hasOptions || isMultipleChoice) && (
-              <div className="options-container">
-                {currentQuestion.options.map((option, index) => {
-                  const optionLabel = String.fromCharCode(97 + index); // a, b, c, d
-                  const isSelected = currentAnswer === option;
-
-                  return (
-                    <label
-                      key={index}
-                      className={`option-item ${isSelected ? 'selected' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name={`question-${currentQuestion.id}`}
-                        value={option}
-                        checked={isSelected}
-                        onChange={() => handleAnswerChange(currentQuestion.id, option)}
-                        className="option-radio"
-                      />
-                      <span className="option-label">{optionLabel}.</span>
-                      <span className="option-text">{option}</span>
-                    </label>
-                  );
-                })}
+        {showOverview ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#111' }}>
+              {examData.title ? examData.title.toUpperCase() : 'KUIS 1'}
+            </h1>
+            <div className="exam-main-content" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #ccc', padding: 0 }}>
+              <div style={{ width: '100%', height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                <table style={{ borderCollapse: 'collapse', width: '380px', height: 'fit-content' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ border: '1px solid #ccc', padding: '12px', color: '#666', fontWeight: 'bold', fontSize: '14px', textAlign: 'center', backgroundColor: '#f9fafb', width: '50%' }}>Question Number</th>
+                      <th style={{ border: '1px solid #ccc', padding: '12px', color: '#666', fontWeight: 'bold', fontSize: '14px', textAlign: 'center', backgroundColor: '#f9fafb', width: '50%' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examData.questions.map((q, index) => {
+                      const isAnswered = selectedAnswers[q.id] !== undefined;
+                      return (
+                        <tr key={q.id}>
+                          <td style={{ border: '1px solid #ccc', padding: '12px', textAlign: 'center', color: '#666', fontSize: '14px' }}>{index + 1}</td>
+                          <td style={{ border: '1px solid #ccc', padding: '12px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: isAnswered ? '#10b981' : '#ef4444' }}>
+                            {isAnswered ? 'Answered' : 'Not Answered'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-
-            {!hasOptions && questionType === 'essay' && (
-              <textarea
-                value={currentAnswer || ''}
-                onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                className="essay-input"
-                placeholder="Type your answer here..."
-                rows={10}
-              />
-            )}
-
-            {!hasOptions && questionType !== 'essay' && (
-              <div className="no-options-message">
-                <p>No options available for this question.</p>
-                <p className="debug-info">Type: {currentQuestion.type_ || 'unknown'}</p>
-              </div>
-            )}
-
-            <div className="question-navigation">
-              <button
-                onClick={handleClearOption}
-                className="btn-nav btn-clear"
-              >
-                <span className="btn-icon">⌫</span>
-                Clear Option
-              </button>
-              <button
-                onClick={handlePreviousQuestion}
-                disabled={currentQuestionIndex === 0 || examData.sequential}
-                className="btn-nav btn-back"
-                title={examData.sequential ? 'Tidak bisa kembali ke soal sebelumnya (Sequential Mode)' : ''}
-              >
-                <span className="btn-icon">‹</span>
-                Back
-              </button>
-              <button
-                onClick={handleNextQuestion}
-                disabled={currentQuestionIndex === examData.questions.length - 1}
-                className="btn-nav btn-next"
-              >
-                Next
-                <span className="btn-icon">›</span>
-              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="exam-main-content">
+            <div className="question-container">
+              <h2 className="question-text">
+                {currentQuestionIndex + 1}. {currentQuestion.question || currentQuestion.content || 'No question text'}
+              </h2>
+
+              {(hasOptions || isMultipleChoice) && (
+                <div className="options-container">
+                  {currentQuestion.options.map((option, index) => {
+                    const optionLabel = String.fromCharCode(97 + index); // a, b, c, d
+                    const isSelected = currentAnswer === option;
+
+                    return (
+                      <label
+                        key={index}
+                        className={`option-item ${isSelected ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name={`question-${currentQuestion.id}`}
+                          value={option}
+                          checked={isSelected}
+                          onChange={() => handleAnswerChange(currentQuestion.id, option)}
+                          className="option-radio"
+                        />
+                        <span className="option-label">{optionLabel}.</span>
+                        <span className="option-text">{option}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!hasOptions && questionType === 'essay' && (
+                <textarea
+                  value={currentAnswer || ''}
+                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
+                  className="essay-input"
+                  placeholder="Type your answer here..."
+                  rows={10}
+                />
+              )}
+
+              {!hasOptions && questionType !== 'essay' && (
+                <div className="no-options-message">
+                  <p>No options available for this question.</p>
+                  <p className="debug-info">Type: {currentQuestion.type_ || 'unknown'}</p>
+                </div>
+              )}
+
+              <div className="question-navigation">
+                <button
+                  onClick={handleClearOption}
+                  className="btn-nav btn-clear"
+                >
+                  <span className="btn-icon">⌫</span>
+                  Clear Option
+                </button>
+                <button
+                  onClick={handlePreviousQuestion}
+                  disabled={currentQuestionIndex === 0 || examData.sequential}
+                  className="btn-nav btn-back"
+                  title={examData.sequential ? 'Tidak bisa kembali ke soal sebelumnya (Sequential Mode)' : ''}
+                >
+                  <span className="btn-icon">‹</span>
+                  Back
+                </button>
+                <button
+                  onClick={handleNextQuestion}
+                  disabled={currentQuestionIndex === examData.questions.length - 1}
+                  className="btn-nav btn-next"
+                >
+                  Next
+                  <span className="btn-icon">›</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sidebar - Right */}
-        <div className="exam-sidebar">
-          <div className="sidebar-section">
+        <div className="exam-sidebar" style={{ background: 'transparent', padding: 0 }}>
+
+          {/* Hidden Webcam for Proctoring (Running in Background) */}
+          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}>
+            {examData && examData.enable_proctoring && (
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                mirrored={true}
+                screenshotFormat="image/jpeg"
+                videoConstraints={{ frameRate: { ideal: 15, max: 25 } }}
+                style={{ width: '640px', height: '480px' }}
+              />
+            )}
+          </div>
+
+          <div className="sidebar-section" style={{ background: 'white', borderRadius: '8px', border: '1px solid #ccc', padding: '20px' }}>
             <h3 className="sidebar-title">Question List</h3>
             <div className="question-list">
               {examData.questions.map((q, index) => {
-                const isActive = currentQuestionIndex === index;
+                const isActive = currentQuestionIndex === index && !showOverview;
                 const isAnswered = selectedAnswers[q.id] !== undefined;
 
                 // In sequential mode, disable all buttons except the current one
-                // This prevents users from going back or skipping ahead via sidebar
                 const isDisabled = examData.sequential && index !== currentQuestionIndex;
 
                 return (
@@ -1050,21 +1093,22 @@ export default function ExamPage() {
             </div>
           </div>
 
-          <div className="sidebar-section">
+          <div className="sidebar-section" style={{ background: 'white', borderRadius: '8px', border: '1px solid #ccc', padding: '20px' }}>
             <h3 className="sidebar-title">Remaining Time</h3>
-            <div className="timer-display">
+            <div className="timer-display" style={{ background: 'transparent', border: 'none', padding: '10px 0', fontSize: '36px', letterSpacing: '2px' }}>
               {formatTime(timeRemaining)}
             </div>
           </div>
 
-          <div className="sidebar-section">
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 'auto' }}>
             <button
-              onClick={handleSubmit}
+              onClick={() => showOverview ? setShowConfirmModal(true) : setShowOverview(true)}
               className="btn-submit-exam"
               disabled={isSubmitting}
+              style={{ width: '120px', padding: '12px', borderRadius: '4px', fontSize: '14px', background: '#0f172a', gap: '8px' }}
             >
-              <img src={submitIcon} alt="Submit" className="submit-icon" />
-              {isSubmitting ? 'Submitting...' : 'Submit'}
+              <img src={submitIcon} alt="Submit" className="submit-icon" style={{ width: '16px', height: '16px', filter: 'invert(100%)' }} />
+              {isSubmitting ? '...' : 'Submit'}
             </button>
           </div>
         </div>
@@ -1108,7 +1152,13 @@ export default function ExamPage() {
               </button>
             </div>
             <div className="confirm-body">
-              <div className="confirm-icon">⚠️</div>
+              <div className="confirm-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
               <p className="confirm-message">
                 Apakah Anda yakin ingin mengirim jawaban ujian?
               </p>
@@ -1176,8 +1226,12 @@ export default function ExamPage() {
               ×
             </button>
             <div className={`submit-message ${submitMessage.type}`}>
-              <div className="submit-icon-large">
-                {submitMessage.type === 'success' ? '✓' : '✗'}
+              <div className="submit-icon-large" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                {submitMessage.type === 'success' ? (
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                ) : (
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                )}
               </div>
               <h2 className="submit-title">
                 {submitMessage.type === 'success' ? 'Success!' : 'Error'}

@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { load } from '@tauri-apps/plugin-store';
+import { invoke } from '@tauri-apps/api/core';
 import logo from '../assets/logo.png';
+import exitIcon from '../assets/exit.png';
+import batteryIcon from '../assets/baterai.png';
 import './ReviewPage.css';
 
 export default function ReviewPage() {
@@ -9,6 +12,9 @@ export default function ReviewPage() {
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [examResult, setExamResult] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,6 +42,8 @@ export default function ReviewPage() {
       navigate('/main');
     }
   };
+
+
 
   // Helper function to normalize true/false answers
   const normalizeAnswer = (ans) => {
@@ -211,37 +219,58 @@ export default function ReviewPage() {
                     onClick={() => setCurrentQuestionIndex(index)}
                     className={`question-number-btn ${isActive ? 'active' : ''} ${isAnswered ? 'answered' : 'unanswered'}`}
                   >
-                    <span className="question-number">{index + 1}</span>
-                    <span className="question-indicator"></span>
+                    {index + 1}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {examData.show_grade && (
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Grade</h3>
-              <div className="grade-display">
-                <div className="grade-value-large">
-                  {examData.questions.reduce((acc, q) => {
-                    const qType = q.type_ || q.type || (q.options ? 'multiple_choice' : 'essay');
-                    if (qType === 'essay') return acc;
-                    return acc + getQuestionScore(q).earned;
-                  }, 0).toFixed(2)} / {examData.questions.reduce((acc, q) => {
-                    const qType = q.type_ || q.type || (q.options ? 'multiple_choice' : 'essay');
-                    if (qType === 'essay') return acc;
-                    return acc + (q.point || 1);
-                  }, 0).toFixed(2)}
+          {examData.show_grade && (() => {
+            const earned = examData.questions.reduce((acc, q) => {
+              const qType = q.type_ || q.type || (q.options ? 'multiple_choice' : 'essay');
+              if (qType === 'essay') return acc;
+              return acc + getQuestionScore(q).earned;
+            }, 0);
+
+            const total = examData.questions.reduce((acc, q) => {
+              const qType = q.type_ || q.type || (q.options ? 'multiple_choice' : 'essay');
+              if (qType === 'essay') return acc;
+              return acc + (q.point || 1);
+            }, 0);
+
+            const percentage = total > 0 ? (earned / total) * 100 : 0;
+            const passingGrade = examData.passing_grade || 0;
+            const isPassed = passingGrade > 0 ? percentage >= passingGrade : null;
+
+            return (
+              <div className="sidebar-section">
+                <h3 className="sidebar-title">Grade</h3>
+                <div className="grade-display">
+                  <div className="grade-value-large">
+                    {earned.toFixed(2)} / {total.toFixed(2)}
+                  </div>
+                  <div className="grade-status" style={{
+                    marginTop: '12px',
+                    padding: '8px',
+                    borderRadius: '6px',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    width: '100%',
+                    backgroundColor: isPassed ? '#d1fae5' : isPassed === false ? '#fee2e2' : '#e0f2fe',
+                    color: isPassed ? '#059669' : isPassed === false ? '#dc2626' : '#0284c7'
+                  }}>
+                    {isPassed === true ? 'PASSED' : isPassed === false ? 'FAILED' : 'COMPLETED'} ({percentage.toFixed(2)}%)
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div className="sidebar-section">
             <button
               className="btn-done-review"
-              onClick={() => navigate('/main')}
+              onClick={() => navigate('/waiting')}
             >
               Done Review
             </button>
@@ -250,23 +279,29 @@ export default function ReviewPage() {
       </div>
 
       {/* Footer */}
-      <div className="review-footer">
+      <div className="page-footer">
         <div className="footer-logo">
           <img src={logo} alt="Logo" className="footer-logo-img" />
-          <span className="footer-logo-text">EST</span>
         </div>
-        <div className="footer-info">
-          <span>100%</span>
-          <span>{new Date().toLocaleDateString('en-US', {
+        <div className="footer-right">
+          <div className="status-badge">
+            <img src={batteryIcon} alt="Battery" className="status-icon-img" />
+            <span>100%</span>
+          </div>
+          <span className="current-time">{new Date().toLocaleDateString('en-US', {
             month: 'short',
             day: '2-digit',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
           })}</span>
-          <span className="fullscreen-icon">⛶</span>
+          <button className="btn-footer-exit" onClick={() => navigate('/waiting')}>
+            <img src={exitIcon} alt="Exit" className="exit-icon-img" />
+          </button>
         </div>
       </div>
-    </div >
+
+
+    </div>
   );
 }

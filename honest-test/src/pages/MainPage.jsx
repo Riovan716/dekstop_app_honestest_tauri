@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { load } from '@tauri-apps/plugin-store';
-import { downloadExamConfigFile, getStudentExamAttempts } from '../api/exam.js';
+import { downloadExamConfigFile, checkNimInCourse } from '../api/exam.js';
 import { fileToBase64, blobToFile } from '../utils/fileUtils.js';
 import logo from '../assets/logo.png';
 import getIcon from '../assets/get.png';
@@ -135,18 +135,38 @@ export default function MainPage() {
       if (result.data) {
         console.log('Decrypted exam data:', result.data);
 
-        // Check allowed attempts
-        if (result.data.allowed_attempts) {
+        // Check course enrollment instead of attempts
+        if (!result.data.course_id) {
+          if (result.data.allowed_students && Array.isArray(result.data.allowed_students)) {
+            const isAllowed = result.data.allowed_students.some(
+              (student) => student.nim === nim
+            );
+            if (!isAllowed) {
+              setPasswordErrMessage('You are not permitted to take this exam. You are not enrolled in this course.');
+              return;
+            }
+          }
+        } else {
           try {
-            const attempts = await getStudentExamAttempts(result.data.id, nim);
-            if (attempts >= result.data.allowed_attempts) {
-              setPasswordErrMessage(`You have reached the maximum number of attempts (${result.data.allowed_attempts}) for this exam.`);
+            const response = await checkNimInCourse(nim, result.data.course_id);
+            if (!response.exists) {
+              setPasswordErrMessage('You are not permitted to take this exam. You are not enrolled in this course.');
               return;
             }
           } catch (error) {
-            console.error('Error checking attempts:', error);
-            setPasswordErrMessage('Failed to verify attempt limit. Please check your connection.');
-            return;
+            console.error('Error checking NIM:', error);
+            if (result.data.allowed_students && Array.isArray(result.data.allowed_students)) {
+              const isAllowed = result.data.allowed_students.some(
+                (student) => student.nim === nim
+              );
+              if (!isAllowed) {
+                setPasswordErrMessage('You are not permitted to take this exam. You are not enrolled in this course.');
+                return;
+              }
+            } else {
+              setPasswordErrMessage('Failed to verify enrollment. Please try again or contact administrator.');
+              return;
+            }
           }
         }
 

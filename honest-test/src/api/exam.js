@@ -129,3 +129,22 @@ export async function getStudentExamAttempts(examId, nim) {
   return 0;
 }
 
+/**
+ * Get exam attempts history for a student
+ * @param {number} examId - Exam ID
+ * @param {string} nim - Student NIM
+ * @returns {Promise<Array>} Array of attempts
+ */
+export async function getStudentExamHistory(examId, nim) {
+  const queryParams = new URLSearchParams();
+  queryParams.append('exam', examId.toString());
+  queryParams.append('user_username', nim);
+
+  const response = await apiRequest(`/exam-result?${queryParams.toString()}`, {
+    method: 'GET',
+    useAuth: false,
+  });
+
+  return response.data || [];
+}
+

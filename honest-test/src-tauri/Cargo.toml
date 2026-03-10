@@ -39,4 +39,5 @@ tokio-util = { version = "0.7", features = ["codec"] }
 dirs = "5.0"
 window-shadows = "0.2.2"
 windows = { version = "0.62.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_LibraryLoader"] }
+winreg = "0.55.0"
 

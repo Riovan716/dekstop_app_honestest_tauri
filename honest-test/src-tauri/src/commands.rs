@@ -217,15 +217,36 @@ pub async fn enter_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String
     if let Some(window) = app_handle.get_webview_window("main") {
         // Use fullscreen to prevent dragging/shrinking the window
         // This removes the Title Bar, but ensures security
+        // 1. Fullscreen and locked styling
         window.set_fullscreen(true).map_err(|e| e.to_string())?;
         window.set_resizable(false).map_err(|e| e.to_string())?;
         window.set_always_on_top(true).map_err(|e| e.to_string())?;
         window.set_decorations(false).map_err(|e| e.to_string())?; 
+        window.set_focus().map_err(|e| e.to_string())?;
 
-        // Block keyboard shortcuts - Must run on main thread for the hook to work properly
+        // 2. Continuous Focus Enforcement Loop to steal focus back if Virtual Desktop switch somehow bypassed hooks
+        crate::kiosk::set_kiosk_active(true);
+        let focus_window = window.clone();
+        std::thread::spawn(move || {
+            while crate::kiosk::is_kiosk_active() {
+                // Return to focus if moved
+                let is_focused = focus_window.is_focused().unwrap_or(false);
+                if !is_focused {
+                    let _ = focus_window.set_focus();
+                }
+                
+                // Sleep to avoid CPU pegging
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+        });
+
+        // 3. Block keyboard shortcuts - Must run on main thread for the hook to work properly
         let _ = app_handle.run_on_main_thread(move || {
             if let Err(e) = crate::kiosk::start_keyboard_hook() {
                 eprintln!("Failed to start keyboard hook: {}", e);
+            }
+            if let Err(e) = crate::kiosk::disable_touchpad_gestures() {
+                eprintln!("Failed to disable touchpad gestures: {}", e);
             }
         });
         
@@ -238,6 +259,9 @@ pub async fn enter_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String
 #[tauri::command]
 pub async fn exit_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window("main") {
+        // Disengage the focus enforcer
+        crate::kiosk::set_kiosk_active(false);
+
         window.set_fullscreen(false).map_err(|e| e.to_string())?;
         window.set_decorations(true).map_err(|e| e.to_string())?;
         window.maximize().map_err(|e| e.to_string())?;
@@ -247,6 +271,9 @@ pub async fn exit_kiosk_mode(app_handle: tauri::AppHandle) -> Result<(), String>
         // Unblock keyboard shortcuts
         let _ = app_handle.run_on_main_thread(move || {
             crate::kiosk::stop_keyboard_hook();
+            if let Err(e) = crate::kiosk::enable_touchpad_gestures() {
+                eprintln!("Failed to enable touchpad gestures: {}", e);
+            }
         });
 
         Ok(())

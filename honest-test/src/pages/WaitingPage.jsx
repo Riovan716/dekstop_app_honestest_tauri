@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { load } from '@tauri-apps/plugin-store';
-import { checkNimInCourse } from '../api/exam.js';
+import { invoke } from '@tauri-apps/api/core';
+import { getStudentExamHistory } from '../api/exam.js';
 import logo from '../assets/logo.png';
 import exitIcon from '../assets/exit.png';
 import batteryIcon from '../assets/baterai.png';
@@ -9,10 +10,32 @@ import './WaitingPage.css';
 
 export default function WaitingPage() {
   const [examData, setExamData] = useState(null);
+  const [attemptsHistory, setAttemptsHistory] = useState([]);
   const [showStartPasswordModal, setShowStartPasswordModal] = useState(false);
   const [startPassword, setStartPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  // Exit Modal State
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [exitPassword, setExitPassword] = useState('');
+  const [exitError, setExitError] = useState('');
+
   const navigate = useNavigate();
+
+  const handleExitWaiting = async () => {
+    const correctPassword = examData?.end_password || 'admin123';
+    if (exitPassword === correctPassword) {
+      try {
+        await invoke('exit_kiosk_mode');
+        navigate('/main');
+      } catch (error) {
+        console.error('Failed to exit kiosk mode:', error);
+        navigate('/main');
+      }
+    } else {
+      setExitError('Password Salah');
+    }
+  };
 
   useEffect(() => {
     loadExamData();
@@ -64,6 +87,19 @@ export default function WaitingPage() {
 
       console.log('Formatted data:', formattedData);
       setExamData(formattedData);
+
+      try {
+        const nim = await store.get('user-nim');
+        if (nim && formattedData.id) {
+          const history = await getStudentExamHistory(formattedData.id, nim);
+          setAttemptsHistory(history);
+        } else {
+          setAttemptsHistory([]);
+        }
+      } catch (err) {
+        console.error("Failed fetching attempts", err);
+        setAttemptsHistory([]);
+      }
     } catch (error) {
       console.error('Error loading exam data:', error);
       navigate('/main');
@@ -125,56 +161,23 @@ export default function WaitingPage() {
         return;
       }
 
-      // Check if course_id exists in exam data
-      if (!examData.course_id) {
-        // If course_id not available, check in allowed_students list from exam data
-        if (examData.allowed_students && Array.isArray(examData.allowed_students)) {
-          const isAllowed = examData.allowed_students.some(
-            (student) => student.nim === nim
-          );
+      // Check attempts limit
+      const allowedAttempts = (examData.allowed_attempts !== undefined && examData.allowed_attempts !== null)
+        ? examData.allowed_attempts
+        : (examData.attempts_allowed !== undefined && examData.attempts_allowed !== null)
+          ? examData.attempts_allowed
+          : null;
 
-          if (!isAllowed) {
-            setPasswordError('You are not permitted to take this exam. You have not yet enrolled in this course.');
-            return;
-          }
-        } else {
-          // If no allowed_students list, allow (for backward compatibility)
-          console.warn('No course_id or allowed_students list found, allowing access');
-        }
-      } else {
-        // Check via API
-        try {
-          const response = await checkNimInCourse(nim, examData.course_id);
-
-          if (!response.exists) {
-            setPasswordError('You are not permitted to take this exam. You have not yet enrolled in this course.');
-            return;
-          }
-        } catch (error) {
-          console.error('Error checking NIM:', error);
-          // If API fails, check in allowed_students list from exam data as fallback
-          if (examData.allowed_students && Array.isArray(examData.allowed_students)) {
-            const isAllowed = examData.allowed_students.some(
-              (student) => student.nim === nim
-            );
-
-            if (!isAllowed) {
-              setPasswordError('You are not permitted to take this exam. You have not yet enrolled in this course.');
-              return;
-            }
-          } else {
-            // If API fails and no fallback, show error
-            setPasswordError('Failed to verify enrollment. Please try again or contact administrator.');
-            return;
-          }
-        }
+      if (allowedAttempts && attemptsHistory.length >= allowedAttempts) {
+        setPasswordError(`You have reached the maximum number of attempts (${allowedAttempts}) for this exam.`);
+        return;
       }
 
       // All checks passed, navigate to exam page
       navigate('/exam');
     } catch (error) {
-      console.error('Error checking NIM:', error);
-      setPasswordError('Failed to verify enrollment. Please try again.');
+      console.error('Error verifying attempts:', error);
+      setPasswordError('Failed to verify attempt limit. Please try again.');
     }
   };
 
@@ -260,11 +263,63 @@ export default function WaitingPage() {
           </div>
         </div>
 
-        <div className="action-container">
-          <button className="btn-start-exam" onClick={handleStartExam}>
-            Start Exam
-          </button>
+        <hr className="section-divider" />
+
+        <div className="history-table-container">
+          <table className="history-table">
+            <thead>
+              <tr>
+                <th>Attempt</th>
+                <th>Submitted At</th>
+                <th>Grade</th>
+                <th>Review</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attemptsHistory.length > 0 ? (
+                attemptsHistory.map((attempt, index) => {
+                  const expected = attempt.expected_score || 0;
+                  const total = attempt.total_score || 0;
+                  const percentage = expected > 0 ? ((total / expected) * 100).toFixed(2) : '0.00';
+
+                  return (
+                    <tr key={attempt.id || index}>
+                      <td>{index + 1}</td>
+                      <td>{formatDate(attempt.created_at)}</td>
+                      <td>{total} / {expected} <span style={{ fontWeight: 600 }}>({percentage}%)</span></td>
+                      <td><span className="review-link" onClick={() => navigate('/review')}>Review</span></td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: 'center', padding: '16px' }}>Belum ada percobaan</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
+
+        {/* Calculate if attempts limit reached */}
+        {(() => {
+          const allowedAttempts = (examData.allowed_attempts !== undefined && examData.allowed_attempts !== null)
+            ? examData.allowed_attempts
+            : (examData.attempts_allowed !== undefined && examData.attempts_allowed !== null)
+              ? examData.attempts_allowed
+              : null;
+
+          // If allowedAttempts is null or 0, it usually means unlimited.
+          // Otherwise, hide if history length >= allowed map
+          const isLimitReached = allowedAttempts ? attemptsHistory.length >= allowedAttempts : false;
+
+          return !isLimitReached ? (
+            <div className="action-container">
+              <button className="btn-start-exam" onClick={handleStartExam}>
+                Start Exam
+              </button>
+            </div>
+          ) : null;
+        })()}
       </div>
 
       <div className="page-footer">
@@ -283,7 +338,7 @@ export default function WaitingPage() {
             hour: '2-digit',
             minute: '2-digit'
           })}</span>
-          <button className="btn-footer-exit" onClick={() => navigate('/main')}>
+          <button className="btn-footer-exit" onClick={() => setShowExitModal(true)}>
             <img src={exitIcon} alt="Exit" className="exit-icon-img" />
           </button>
         </div>
@@ -343,6 +398,51 @@ export default function WaitingPage() {
                 }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Waiting Modal */}
+      {showExitModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content blocked-modal" style={{ background: '#fff', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '400px', textAlign: 'center' }}>
+            <h2 className="blocked-title" style={{ color: '#ef4444', marginBottom: '10px' }}>Keluar dari Ujian</h2>
+            <p className="blocked-subtext" style={{ color: '#666', marginBottom: '20px' }}>Masukkan End Password untuk kembali ke menu utama.</p>
+            <input
+              type="password"
+              className="blocked-input"
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px' }}
+              placeholder="Masukkan End Password"
+              value={exitPassword}
+              onChange={(e) => {
+                setExitPassword(e.target.value);
+                setExitError('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleExitWaiting();
+              }}
+            />
+            {exitError && <p style={{ color: '#ef4444', marginTop: '-5px', marginBottom: '15px' }}>{exitError}</p>}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                className="btn-resume"
+                style={{ backgroundColor: '#6b7280', padding: '10px 20px', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                onClick={() => {
+                  setShowExitModal(false);
+                  setExitPassword('');
+                  setExitError('');
+                }}
+              >
+                Batal
+              </button>
+              <button
+                className="btn-resume"
+                style={{ backgroundColor: '#ef4444', padding: '10px 20px', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                onClick={handleExitWaiting}
+              >
+                Keluar
               </button>
             </div>
           </div>

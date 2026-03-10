@@ -36,8 +36,8 @@ function AppContent() {
 
   // Load exit password only if we are in the exam
   const loadExitPassword = async () => {
-    // Only require password if we are strictly on the exam page
-    if (location.pathname !== '/exam') {
+    // Only require password if we are strictly on the secure pages
+    if (!['/exam', '/waiting', '/review'].includes(location.pathname)) {
       setExitPassword('');
       setExamTitle('');
       return;
@@ -76,8 +76,8 @@ function AppContent() {
         unlisten = await appWindow.onCloseRequested(async (event) => {
           if (isExitingRef.current) return;
 
-          // Only prevent exit and show modal if we are on the exam page
-          if (locationRef.current.pathname === '/exam') {
+          // Only prevent exit and show modal if we are on the protected pages
+          if (['/exam', '/waiting', '/review'].includes(locationRef.current.pathname)) {
             event.preventDefault();
             setShowExitModal(true);
           }
@@ -98,8 +98,8 @@ function AppContent() {
   // Prevent Alt+Tab (Focus Loss) Logic
   useEffect(() => {
     const handleFocusLoss = async () => {
-      // Only enforce focus if we are on the exam page
-      if (location.pathname === '/exam') {
+      // Only enforce focus if we are on the protected pages
+      if (['/exam', '/waiting', '/review'].includes(location.pathname)) {
         console.warn('Focus lost! Attempting to refocus...');
         try {
           const appWindow = getCurrentWindow();
@@ -124,7 +124,7 @@ function AppContent() {
   useEffect(() => {
     const updateKioskLevel = async () => {
       try {
-        if (location.pathname === '/exam') {
+        if (['/exam', '/waiting', '/review'].includes(location.pathname)) {
           await invoke('enter_kiosk_mode');
           console.log('Entered Kiosk Mode');
         } else {
