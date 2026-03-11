@@ -48,8 +48,8 @@ pub struct Question {
     pub id: i32,
     pub question: String,
     pub type_: String,
-    pub options: Option<Vec<String>>,
-    pub correct_answer: Option<String>,
+    pub options: Option<Vec<serde_json::Value>>,
+    pub correct_answer: Option<serde_json::Value>,
     pub point: Option<f64>,
 }
 

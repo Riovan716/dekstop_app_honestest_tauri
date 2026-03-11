@@ -43,10 +43,10 @@ unsafe extern "system" fn minimize_windows_proc(hwnd: HWND, _lparam: LPARAM) -> 
 
 pub fn close_other_windows() {
     let ps_script = r#"
-        $exclude = @('honest-test', 'Antigravity', 'Code', 'Cursor', 'devenv', 'node', 'npm', 'cmd', 'powershell', 'pwsh', 'WindowsTerminal', 'explorer', 'ApplicationFrameHost', 'TextInputHost', 'Taskmgr', 'SystemSettings', 'msedgewebview2')
+        $exclude = @('honest-test', 'Antigravity', 'Code', 'Cursor', 'devenv', 'node', 'npm', 'cmd', 'powershell', 'pwsh', 'WindowsTerminal', 'explorer', 'ApplicationFrameHost', 'TextInputHost', 'Taskmgr', 'SystemSettings', 'msedgewebview2', 'putty', 'chrome')
         
         # Kill Browsers directly
-        Get-Process -Name chrome,msedge,firefox,brave,opera -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process -Name msedge,firefox,brave,opera -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
         
         # Kill other apps with UI
         Get-Process | Where-Object { 

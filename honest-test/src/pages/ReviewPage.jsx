@@ -116,31 +116,41 @@ export default function ReviewPage() {
                       const questionType = currentQuestion.type_ || currentQuestion.type || 'multiple_choice';
                       const isTrueFalse = questionType === 'true_false' || questionType === 'true/false';
 
+                      const optValue = typeof option === 'object' && option !== null ? option.text : option;
+                      const optId = typeof option === 'object' && option !== null ? option.id : option;
+
                       // Check if this option is selected
                       let isSelected = false;
                       if (answer !== undefined && answer !== null) {
                         if (isTrueFalse) {
                           // For true/false, normalize both for comparison
                           const normalizedAnswer = normalizeAnswer(answer);
-                          const normalizedOption = normalizeAnswer(option);
+                          const normalizedOption = normalizeAnswer(optValue);
                           isSelected = normalizedAnswer === normalizedOption;
+                        } else if (Array.isArray(answer)) {
+                          // For check_box, answer is an array
+                          isSelected = answer.map(String).includes(String(optId)) || answer.map(String).includes(String(optValue));
                         } else {
                           // Direct comparison for other types
-                          isSelected = String(answer) === String(option);
+                          isSelected = String(answer) === String(optId) || String(answer) === String(optValue);
                         }
                       }
 
                       // Check if this option is the correct answer
                       let isCorrectOption = false;
-                      if (currentQuestion.correct_answer !== undefined && currentQuestion.correct_answer !== null) {
+                      // 1st priority: look for is_correct inside option object
+                      if (typeof option === 'object' && option !== null && option.is_correct !== undefined) {
+                        isCorrectOption = option.is_correct;
+                      } else if (currentQuestion.correct_answer !== undefined && currentQuestion.correct_answer !== null) {
+                        // fallback to correct_answer field
                         if (isTrueFalse) {
-                          // For true/false, normalize both for comparison
-                          const normalizedOption = normalizeAnswer(option);
+                          const normalizedOption = normalizeAnswer(optValue);
                           const normalizedCorrect = normalizeAnswer(currentQuestion.correct_answer);
                           isCorrectOption = normalizedOption === normalizedCorrect;
+                        } else if (Array.isArray(currentQuestion.correct_answer)) {
+                          isCorrectOption = currentQuestion.correct_answer.map(String).includes(String(optId));
                         } else {
-                          // Direct comparison for other types
-                          isCorrectOption = String(option) === String(currentQuestion.correct_answer);
+                          isCorrectOption = String(optId) === String(currentQuestion.correct_answer) || String(optValue) === String(currentQuestion.correct_answer);
                         }
                       }
 
@@ -154,7 +164,7 @@ export default function ReviewPage() {
                           className={`review-option-item ${isCorrect ? 'correct-selected' : isIncorrect ? 'incorrect-selected' : ''}`}
                         >
                           <span className="option-label">{optionLabel}.</span>
-                          <span className="option-text">{isTrueFalse ? normalizeAnswer(option) : option}</span>
+                          <span className="option-text">{isTrueFalse ? normalizeAnswer(optValue) : optValue}</span>
                         </div>
                       );
                     })

@@ -603,11 +603,28 @@ export default function ExamPage() {
     }
   };
 
-  const handleAnswerChange = (questionId, answer) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [questionId]: answer,
-    }));
+  const handleAnswerChange = (questionId, answer, isCheckbox = false) => {
+    if (isCheckbox) {
+      setSelectedAnswers((prev) => {
+        const current = Array.isArray(prev[questionId]) ? prev[questionId] : [];
+        if (current.includes(answer)) {
+          const newCurrent = current.filter(id => id !== answer);
+          if (newCurrent.length === 0) {
+            const newAnswers = { ...prev };
+            delete newAnswers[questionId];
+            return newAnswers;
+          }
+          return { ...prev, [questionId]: newCurrent }
+        } else {
+          return { ...prev, [questionId]: [...current, answer] }
+        }
+      });
+    } else {
+      setSelectedAnswers((prev) => ({
+        ...prev,
+        [questionId]: answer,
+      }));
+    }
   };
 
   const handleClearOption = () => {
@@ -955,7 +972,8 @@ export default function ExamPage() {
                   </thead>
                   <tbody>
                     {examData.questions.map((q, index) => {
-                      const isAnswered = selectedAnswers[q.id] !== undefined;
+                      const ans = selectedAnswers[q.id];
+                      const isAnswered = Array.isArray(ans) ? ans.length > 0 : !!(ans && String(ans).trim() !== '');
                       return (
                         <tr key={q.id}>
                           <td style={{ border: '1px solid #ccc', padding: '12px', textAlign: 'center', color: '#666', fontSize: '14px' }}>{index + 1}</td>
@@ -973,15 +991,21 @@ export default function ExamPage() {
         ) : (
           <div className="exam-main-content">
             <div className="question-container">
-              <h2 className="question-text">
-                {currentQuestionIndex + 1}. {currentQuestion.question || currentQuestion.content || 'No question text'}
-              </h2>
+              <h2 className="question-text" dangerouslySetInnerHTML={{ __html: `${currentQuestionIndex + 1}. ${currentQuestion.content || currentQuestion.question || 'No question text'}` }} />
 
               {(hasOptions || isMultipleChoice) && (
                 <div className="options-container">
                   {currentQuestion.options.map((option, index) => {
+                    const isCheckbox = currentQuestion.type_ === 'check_box' || currentQuestion.type === 'check_box' || 
+                      (Array.isArray(currentQuestion.options) && currentQuestion.options.filter(o => typeof o === 'object' && o !== null && o.is_correct === true).length > 1);
+
                     const optionLabel = String.fromCharCode(97 + index); // a, b, c, d
-                    const isSelected = currentAnswer === option;
+                    const optValue = typeof option === 'object' && option !== null ? option.text : option;
+                    const optId = typeof option === 'object' && option !== null ? option.id : option;
+                    
+                    const isSelected = isCheckbox 
+                       ? Array.isArray(currentAnswer) && currentAnswer.includes(optId)
+                       : currentAnswer === optId || currentAnswer === optValue;
 
                     return (
                       <label
@@ -989,15 +1013,15 @@ export default function ExamPage() {
                         className={`option-item ${isSelected ? 'selected' : ''}`}
                       >
                         <input
-                          type="radio"
+                          type={isCheckbox ? "checkbox" : "radio"}
                           name={`question-${currentQuestion.id}`}
-                          value={option}
+                          value={optId}
                           checked={isSelected}
-                          onChange={() => handleAnswerChange(currentQuestion.id, option)}
-                          className="option-radio"
+                          onChange={() => handleAnswerChange(currentQuestion.id, optId, isCheckbox)}
+                          className={isCheckbox ? "option-checkbox" : "option-radio"}
                         />
                         <span className="option-label">{optionLabel}.</span>
-                        <span className="option-text">{option}</span>
+                        <span className="option-text">{optValue}</span>
                       </label>
                     );
                   })}
@@ -1073,7 +1097,8 @@ export default function ExamPage() {
             <div className="question-list">
               {examData.questions.map((q, index) => {
                 const isActive = currentQuestionIndex === index && !showOverview;
-                const isAnswered = selectedAnswers[q.id] !== undefined;
+                const ans = selectedAnswers[q.id];
+                const isAnswered = Array.isArray(ans) ? ans.length > 0 : !!(ans && String(ans).trim() !== '');
 
                 // In sequential mode, disable all buttons except the current one
                 const isDisabled = examData.sequential && index !== currentQuestionIndex;
