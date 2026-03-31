@@ -55,7 +55,7 @@ export default function MainPage() {
     try {
       setPasswordErrMessage('');
       const blob = await downloadExamConfigFile(parseInt(examId));
-      const file = blobToFile(blob, `exam_${examId}.ta12`);
+      const file = blobToFile(blob, `exam_${examId}.ta01`);
       setExamConfigFile(file);
       setShowPasswordDialog(true);
     } catch (error) {
@@ -70,14 +70,14 @@ export default function MainPage() {
         filters: [
           {
             name: 'Exam Config',
-            extensions: ['ta12'],
+            extensions: ['ta01'],
           },
         ],
       });
 
       if (selected && typeof selected === 'string') {
         const fileText = await readFile(selected, { encoding: 'utf-8' });
-        const file = new File([fileText], selected.split(/[/\\]/).pop() || 'exam.ta12', {
+        const file = new File([fileText], selected.split(/[/\\]/).pop() || 'exam.ta01', {
           type: 'text/plain',
         });
 
@@ -95,7 +95,7 @@ export default function MainPage() {
     setPasswordErrMessage('');
     try {
       let base64Data;
-      if (examConfigFile.type === 'text/plain' || examConfigFile.name.endsWith('.ta12')) {
+      if (examConfigFile.type === 'text/plain' || examConfigFile.name.endsWith('.ta01')) {
         base64Data = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {

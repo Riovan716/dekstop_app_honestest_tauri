@@ -64,13 +64,43 @@ export default function ReviewPage() {
     const isTrueFalse = questionType === 'true_false' || questionType === 'true/false';
 
     let isCorrect = false;
-    if (answer !== undefined && correctAnswer !== undefined) {
+    if (answer !== undefined && answer !== null) {
+      const isCheckbox = questionType === 'check_box' || Array.isArray(answer) || (question.options && question.options.filter(o => typeof o === 'object' && o !== null && o.is_correct === true).length > 1);
+      
       if (isTrueFalse) {
         const normalizedAnswer = normalizeAnswer(answer);
         const normalizedCorrect = normalizeAnswer(correctAnswer);
         isCorrect = normalizedAnswer === normalizedCorrect;
+      } else if (isCheckbox) {
+        let correctIds = [];
+        let correctTexts = [];
+        if (Array.isArray(correctAnswer)) {
+          correctIds = correctAnswer.map(String);
+          correctTexts = correctAnswer.map(String);
+        } else if (question.options) {
+          question.options.forEach(o => {
+            if (typeof o === 'object' && o !== null && o.is_correct) {
+              correctIds.push(String(o.id));
+              correctTexts.push(String(o.text));
+            }
+          });
+        }
+        const answerArr = Array.isArray(answer) ? answer.map(String) : [String(answer)];
+        
+        let validCount = 0;
+        let anyWrong = false;
+        
+        answerArr.forEach(ans => {
+          if (correctIds.includes(ans) || correctTexts.includes(ans)) {
+            validCount++;
+          } else {
+            anyWrong = true;
+          }
+        });
+        
+        isCorrect = !anyWrong && validCount >= correctIds.length && correctIds.length > 0;
       } else {
-        isCorrect = answer === correctAnswer;
+        isCorrect = String(answer) === String(correctAnswer);
       }
     }
 
@@ -104,9 +134,10 @@ export default function ReviewPage() {
           <div className="review-question-container">
             {currentQuestion && (
               <>
-                <h2 className="review-question-text">
-                  {currentQuestionIndex + 1}. {currentQuestion.question || currentQuestion.content || 'No question text'}
-                </h2>
+                <div className="review-question-text" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>{currentQuestionIndex + 1}.</span>
+                  <div dangerouslySetInnerHTML={{ __html: currentQuestion.content || currentQuestion.question || 'No question text' }} style={{ flex: 1 }} />
+                </div>
 
                 <div className="review-options-container">
                   {currentQuestion.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0 ? (
@@ -157,11 +188,15 @@ export default function ReviewPage() {
                       // Hijau jika dipilih dan benar, merah jika dipilih dan salah
                       const isCorrect = isSelected && isCorrectOption;
                       const isIncorrect = isSelected && !isCorrectOption;
+                      
+                      // Jika dia checkbox/multiple correct, tandai juga mana yg sebenarnya benar tapi TIDAK dipilih (Missed)
+                      const isCheckbox = questionType === 'check_box' || (currentQuestion.options && currentQuestion.options.filter(o => typeof o === 'object' && o !== null && o.is_correct === true).length > 1);
+                      const isMissed = !isSelected && isCorrectOption && isCheckbox;
 
                       return (
                         <div
                           key={index}
-                          className={`review-option-item ${isCorrect ? 'correct-selected' : isIncorrect ? 'incorrect-selected' : ''}`}
+                          className={`review-option-item ${isCorrect ? 'correct-selected' : isIncorrect ? 'incorrect-selected' : isMissed ? 'missed-selected' : ''}`}
                         >
                           <span className="option-label">{optionLabel}.</span>
                           <span className="option-text">{isTrueFalse ? normalizeAnswer(optValue) : optValue}</span>

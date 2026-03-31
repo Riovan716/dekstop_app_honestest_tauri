@@ -80,6 +80,13 @@
   border-width: 2px;
 }
 
+.review-option-item.missed-selected {
+  background-color: #fef3c7;
+  border-color: #f59e0b;
+  border-width: 2px;
+  border-style: dashed;
+}
+
 .option-label {
   font-weight: 600;
   color: #4b5563;

@@ -26,8 +26,8 @@ pub fn decrypt_exam_file(file_base64: &str, password: &str) -> Result<String, St
     let key: [u8; 32] = key_hash[..32].try_into()
         .map_err(|_| "Key derivation failed")?;
 
-    // Derive IV from "ta12" using MD5 (16 bytes)
-    let iv_hash = md5::compute(b"ta12");
+    // Derive IV from "ta01" using MD5 (16 bytes)
+    let iv_hash = md5::compute(b"ta01");
     let iv: [u8; 16] = iv_hash.0;
 
     // Decrypt using AES-256-CTR
@@ -50,8 +50,8 @@ pub fn encrypt_result_file(data: &str, password: &str) -> Result<EncryptResult, 
     let key: [u8; 32] = key_hash[..32].try_into()
         .map_err(|_| "Key derivation failed")?;
 
-    // Derive IV from "ta12" using MD5 (16 bytes)
-    let iv_hash = md5::compute(b"ta12");
+    // Derive IV from "ta01" using MD5 (16 bytes)
+    let iv_hash = md5::compute(b"ta01");
     let iv: [u8; 16] = iv_hash.0;
 
     // Encrypt using AES-256-CTR
@@ -66,7 +66,7 @@ pub fn encrypt_result_file(data: &str, password: &str) -> Result<EncryptResult, 
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let filename = format!("exam_result_{}.ta12r", timestamp);
+    let filename = format!("exam_result_{}.ta01r", timestamp);
 
     Ok(EncryptResult {
         encrypted_data: encrypted_bytes,

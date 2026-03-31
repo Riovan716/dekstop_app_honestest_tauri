@@ -991,9 +991,12 @@ export default function ExamPage() {
         ) : (
           <div className="exam-main-content">
             <div className="question-container">
-              <h2 className="question-text" dangerouslySetInnerHTML={{ __html: `${currentQuestionIndex + 1}. ${currentQuestion.content || currentQuestion.question || 'No question text'}` }} />
+              <div className="question-text" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>{currentQuestionIndex + 1}.</span>
+                <div dangerouslySetInnerHTML={{ __html: currentQuestion.content || currentQuestion.question || 'No question text' }} style={{ flex: 1 }} />
+              </div>
 
-              {(hasOptions || isMultipleChoice) && (
+              {(hasOptions || isMultipleChoice) && Array.isArray(currentQuestion.options) && (
                 <div className="options-container">
                   {currentQuestion.options.map((option, index) => {
                     const isCheckbox = currentQuestion.type_ === 'check_box' || currentQuestion.type === 'check_box' || 

@@ -161,7 +161,7 @@ pub async fn create_exam_result_file(
         .as_secs();
     
     let filename = format!(
-        "{}_{}_result_{}.ta12r",
+        "{}_{}_result_{}.ta01r",
         course_title.replace("/", "_").replace("\\", "_"),
         exam_title.replace("/", "_").replace("\\", "_"),
         timestamp
