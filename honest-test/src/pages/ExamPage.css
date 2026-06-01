@@ -59,6 +59,14 @@
   line-height: 1.6;
 }
 
+.question-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 15px 0;
+  display: block;
+}
+
 .options-container {
   display: flex;
   flex-direction: column;

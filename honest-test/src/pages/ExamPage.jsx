@@ -1024,7 +1024,7 @@ export default function ExamPage() {
                           className={isCheckbox ? "option-checkbox" : "option-radio"}
                         />
                         <span className="option-label">{optionLabel}.</span>
-                        <span className="option-text">{optValue}</span>
+                        <span className="option-text" dangerouslySetInnerHTML={{ __html: optValue }} />
                       </label>
                     );
                   })}

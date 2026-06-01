@@ -199,7 +199,7 @@ export default function ReviewPage() {
                           className={`review-option-item ${isCorrect ? 'correct-selected' : isIncorrect ? 'incorrect-selected' : isMissed ? 'missed-selected' : ''}`}
                         >
                           <span className="option-label">{optionLabel}.</span>
-                          <span className="option-text">{isTrueFalse ? normalizeAnswer(optValue) : optValue}</span>
+                          <span className="option-text" dangerouslySetInnerHTML={{ __html: isTrueFalse ? normalizeAnswer(optValue) : optValue }} />
                         </div>
                       );
                     })

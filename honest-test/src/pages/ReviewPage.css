@@ -48,6 +48,14 @@
   line-height: 1.5;
 }
 
+.review-question-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 15px 0;
+  display: block;
+}
+
 .review-options-container {
   display: flex;
   flex-direction: column;

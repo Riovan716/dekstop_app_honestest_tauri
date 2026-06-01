@@ -8,7 +8,6 @@ export default function CheckReadiness() {
     const webcamRef = useRef(null);
     const canvasRef = useRef(null);
     const [faceLandmarker, setFaceLandmarker] = useState(null);
-    const [runningMode, setRunningMode] = useState('IMAGE');
     const [movementDescription, setMovementDescription] = useState('');
     const [banyakOrang, setBanyakOrang] = useState('');
 
@@ -38,7 +37,7 @@ export default function CheckReadiness() {
                     delegate: 'GPU'
                 },
                 outputFaceBlendshapes: true,
-                runningMode: runningMode,
+                runningMode: 'VIDEO',
                 numFaces: 3
             });
             setFaceLandmarker(landmarker);
@@ -219,91 +218,99 @@ export default function CheckReadiness() {
         }
     };
 
-    const predictWebcam = async () => {
-        if (!faceLandmarker || !webcamRef.current || !canvasRef.current) return;
-
-        const video = webcamRef.current.video;
-        const canvas = canvasRef.current;
-
-        // Ensure video is ready
-        if (!video || video.readyState !== 4) return;
-
-        const ctx = canvas.getContext('2d');
-
-        if (runningMode === 'IMAGE') {
-            setRunningMode('VIDEO');
-            await faceLandmarker.setOptions({ runningMode: 'VIDEO' });
-        }
-
-        let lastVideoTime = -1;
-        let lastProcessTime = -1;
-
-        const processFrame = async () => {
-            if (!webcamRef.current || !webcamRef.current.video) return;
-
-            const now = performance.now();
-            // Throttle: only process every ~150ms (approx 6-7 FPS)
-            if (now - lastProcessTime < 150) {
-                requestAnimationFrame(processFrame);
-                return;
+    // Cleanup AI Model when unmounting or when faceLandmarker changes
+    useEffect(() => {
+        return () => {
+            if (faceLandmarker) {
+                faceLandmarker.close();
             }
-            lastProcessTime = now;
-
-            const startTimeMs = performance.now();
-
-            // Only detect if video time has advanced
-            if (video.currentTime !== lastVideoTime) {
-                lastVideoTime = video.currentTime;
-
-                let results;
-                try {
-                    results = faceLandmarker.detectForVideo(video, startTimeMs);
-                } catch (e) {
-                    console.error(e);
-                    requestAnimationFrame(processFrame);
-                    return;
-                }
-
-                setBanyakOrang(getBanyakOrangMessage(results.faceLandmarks.length));
-
-                if (results.faceLandmarks && ctx) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    results.faceLandmarks.forEach(() => {
-                        if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
-                            detectMovement(results.faceBlendshapes[0], results.faceLandmarks ? results.faceLandmarks[0] : null);
-                        }
-                    });
-                }
-            }
-
-            requestAnimationFrame(processFrame);
         };
-        processFrame();
-    };
+    }, [faceLandmarker]);
 
     useEffect(() => {
         createFaceLandmarker();
     }, []);
 
     useEffect(() => {
+        let active = true;
+        let animationFrameId;
+
         if (faceLandmarker && webcamRef.current) {
             const video = webcamRef.current.video;
             if (video) {
-                const onLoadedData = () => {
+                const startPrediction = () => {
                     if (canvasRef.current) {
                         canvasRef.current.width = video.videoWidth;
                         canvasRef.current.height = video.videoHeight;
                     }
-                    predictWebcam();
+
+                    const canvas = canvasRef.current;
+                    const ctx = canvas ? canvas.getContext('2d') : null;
+
+                    let lastVideoTime = -1;
+                    let lastProcessTime = -1;
+
+                    const processFrame = async () => {
+                        if (!active || !webcamRef.current || !webcamRef.current.video) return;
+
+                        const now = performance.now();
+                        // Throttle: only process every ~150ms (approx 6-7 FPS)
+                        if (now - lastProcessTime < 150) {
+                            if (active) {
+                                animationFrameId = requestAnimationFrame(processFrame);
+                            }
+                            return;
+                        }
+                        lastProcessTime = now;
+
+                        const startTimeMs = performance.now();
+
+                        // Only detect if video time has advanced
+                        if (video.currentTime !== lastVideoTime) {
+                            lastVideoTime = video.currentTime;
+
+                            let results;
+                            try {
+                                results = faceLandmarker.detectForVideo(video, startTimeMs);
+                            } catch (e) {
+                                console.error(e);
+                                if (active) {
+                                    animationFrameId = requestAnimationFrame(processFrame);
+                                }
+                                return;
+                            }
+
+                            setBanyakOrang(getBanyakOrangMessage(results.faceLandmarks.length));
+
+                            if (results.faceLandmarks && ctx) {
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                results.faceLandmarks.forEach(() => {
+                                    if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+                                        detectMovement(results.faceBlendshapes[0], results.faceLandmarks ? results.faceLandmarks[0] : null);
+                                    }
+                                });
+                            }
+                        }
+
+                        if (active) {
+                            animationFrameId = requestAnimationFrame(processFrame);
+                        }
+                    };
+                    processFrame();
                 };
 
                 if (video.readyState === 4) {
-                    onLoadedData();
+                    startPrediction();
                 } else {
-                    video.addEventListener('loadeddata', onLoadedData);
+                    video.addEventListener('loadeddata', startPrediction);
                 }
+
                 return () => {
-                    video.removeEventListener('loadeddata', onLoadedData);
+                    active = false;
+                    if (animationFrameId) {
+                        cancelAnimationFrame(animationFrameId);
+                    }
+                    video.removeEventListener('loadeddata', startPrediction);
                 };
             }
         }
