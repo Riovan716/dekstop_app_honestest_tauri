@@ -999,16 +999,16 @@ export default function ExamPage() {
               {(hasOptions || isMultipleChoice) && Array.isArray(currentQuestion.options) && (
                 <div className="options-container">
                   {currentQuestion.options.map((option, index) => {
-                    const isCheckbox = currentQuestion.type_ === 'check_box' || currentQuestion.type === 'check_box' || 
+                    const isCheckbox = currentQuestion.type_ === 'check_box' || currentQuestion.type === 'check_box' ||
                       (Array.isArray(currentQuestion.options) && currentQuestion.options.filter(o => typeof o === 'object' && o !== null && o.is_correct === true).length > 1);
 
                     const optionLabel = String.fromCharCode(97 + index); // a, b, c, d
                     const optValue = typeof option === 'object' && option !== null ? option.text : option;
                     const optId = typeof option === 'object' && option !== null ? option.id : option;
-                    
-                    const isSelected = isCheckbox 
-                       ? Array.isArray(currentAnswer) && currentAnswer.includes(optId)
-                       : currentAnswer === optId || currentAnswer === optValue;
+
+                    const isSelected = isCheckbox
+                      ? Array.isArray(currentAnswer) && currentAnswer.includes(optId)
+                      : currentAnswer === optId || currentAnswer === optValue;
 
                     return (
                       <label

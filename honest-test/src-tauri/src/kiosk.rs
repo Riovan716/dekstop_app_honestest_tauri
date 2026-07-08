@@ -42,21 +42,49 @@ unsafe extern "system" fn minimize_windows_proc(hwnd: HWND, _lparam: LPARAM) -> 
 }
 
 pub fn close_other_windows() {
-    let ps_script = r#"
-        $exclude = @('honest-test', 'Antigravity', 'Code', 'Cursor', 'devenv', 'node', 'npm', 'cmd', 'powershell', 'pwsh', 'WindowsTerminal', 'explorer', 'ApplicationFrameHost', 'TextInputHost', 'Taskmgr', 'SystemSettings', 'msedgewebview2', 'putty')
+    let current_pid = std::process::id();
+    
+    // Dynamically get current executable name to exclude it
+    let current_exe_name = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
+        .map(|n| n.strip_suffix(".exe").unwrap_or(&n).to_string())
+        .unwrap_or_else(|| "honest-test".to_string());
+
+    let ps_script = format!(
+        r#"
+        $currentPid = {}
+        $excludePids = @($currentPid)
+        
+        # Get parent and grandparent process IDs to avoid killing dev environment / wrappers
+        try {{
+            $parent = (Get-CimInstance Win32_Process -Filter "ProcessId = $currentPid" -ErrorAction SilentlyContinue)
+            if ($parent) {{
+                $excludePids += $parent.ParentProcessId
+                $grandparent = (Get-CimInstance Win32_Process -Filter "ProcessId = $($parent.ParentProcessId)" -ErrorAction SilentlyContinue)
+                if ($grandparent) {{
+                    $excludePids += $grandparent.ParentProcessId
+                }}
+            }}
+        }} catch {{}}
+        
+        $excludeNames = @('{}', 'honest-test', 'honest_test', 'Antigravity', 'Code', 'Cursor', 'devenv', 'node', 'npm', 'cargo', 'tauri', 'rustc', 'cmd', 'powershell', 'pwsh', 'WindowsTerminal', 'explorer', 'ApplicationFrameHost', 'TextInputHost', 'Taskmgr', 'SystemSettings', 'msedgewebview2', 'putty')
         
         # Kill Browsers directly
         Get-Process -Name msedge,firefox,brave,opera,chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
         
         # Kill other apps with UI
-        Get-Process | Where-Object { 
+        Get-Process | Where-Object {{ 
             $_.MainWindowHandle -ne 0 -and
-            $exclude -notcontains $_.ProcessName
-        } | Stop-Process -Force -ErrorAction SilentlyContinue
-    "#;
+            $excludePids -notcontains $_.Id -and
+            $excludeNames -notcontains $_.ProcessName
+        }} | Stop-Process -Force -ErrorAction SilentlyContinue
+        "#,
+        current_pid, current_exe_name
+    );
 
     let _ = std::process::Command::new("powershell")
-        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script])
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_script])
         .spawn();
 
     unsafe {
